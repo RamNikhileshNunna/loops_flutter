@@ -8,15 +8,17 @@ part of 'comment_model.dart';
 
 _CommentModel _$CommentModelFromJson(Map<String, dynamic> json) =>
     _CommentModel(
-      id: json['id'] as String,
-      videoId: json['v_id'] as String,
-      parentId: json['parent_id'] as String?,
-      comment: json['caption'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: json['id']?.toString() ?? '',
+      videoId: json['v_id']?.toString() ?? '',
+      parentId: json['parent_id']?.toString(),
+      comment: json['caption']?.toString() ?? json['comment']?.toString() ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
       account: json['account'] as Map<String, dynamic>?,
       likeCount: (json['likes'] as num?)?.toInt() ?? 0,
       replyCount: (json['replies'] as num?)?.toInt() ?? 0,
-      isLiked: json['liked'] as bool? ?? false,
+      isLiked: json['liked'] == true || json['liked'] == 'true',
     );
 
 Map<String, dynamic> _$CommentModelToJson(_CommentModel instance) =>

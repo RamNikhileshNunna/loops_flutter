@@ -17,7 +17,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
   ProfileRepositoryImpl(this._apiClient);
 
   static const String _myVideosPath = 'api/v1/feed/account/self';
-  static const String _myLikesPath = 'api/v1/account/videos/liked';
+  static const String _myLikesPath = 'api/v1/account/videos/likes';
 
   FeedPage _parsePage(dynamic data) {
     if (data is! Map<String, dynamic>) {
@@ -39,7 +39,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
     final videos = items
         .whereType<Map>()
-        .map((e) => VideoModel.fromJson(Map<String, dynamic>.from(e)))
+        .expand<VideoModel>((e) { try { return [VideoModel.fromJson(Map<String, dynamic>.from(e))]; } catch (_) { return []; } })
         .toList();
 
     return FeedPage(videos: videos, nextCursor: nextCursor);

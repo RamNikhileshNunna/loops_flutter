@@ -132,7 +132,7 @@ class ExploreRepositoryImpl implements ExploreRepository {
 
     final videos = items
         .whereType<Map>()
-        .map((e) => VideoModel.fromJson(Map<String, dynamic>.from(e)))
+        .expand<VideoModel>((e) { try { return [VideoModel.fromJson(Map<String, dynamic>.from(e))]; } catch (_) { return []; } })
         .toList();
 
     return FeedPage(videos: videos, nextCursor: nextCursor);

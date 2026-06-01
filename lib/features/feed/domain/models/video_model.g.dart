@@ -7,11 +7,12 @@ part of 'video_model.dart';
 // **************************************************************************
 
 _VideoModel _$VideoModelFromJson(Map<String, dynamic> json) => _VideoModel(
-  id: json['id'] as String,
+  id: json['id']?.toString() ?? '',
   media: MediaModel.fromJson(json['media'] as Map<String, dynamic>),
   account: UserModel.fromJson(json['account'] as Map<String, dynamic>),
   likes: (json['likes'] as num?)?.toInt() ?? 0,
-  hasLiked: json['has_liked'] as bool? ?? false,
+  // API may return has_liked as bool or as a truthy string
+  hasLiked: json['has_liked'] == true || json['has_liked'] == 'true',
   comments: (json['comments'] as num?)?.toInt() ?? 0,
   shares: (json['shares'] as num?)?.toInt() ?? 0,
   caption: json['caption'] as String?,
