@@ -76,7 +76,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
             slivers: [
               // ── Top bar ─────────────────────────────────────────────────
               SliverToBoxAdapter(
-                child: _TopBar(username: user.username),
+                child: _TopBar(
+                    username: user.username, userId: widget.userId),
               ),
 
               // ── Profile header ───────────────────────────────────────────
@@ -133,19 +134,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     ),
                   ),
                 ),
-                error: (_, __) => const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(
-                      child: Text('Could not load videos',
-                          style: TextStyle(color: Colors.white38)),
-                    ),
-                  ),
+                error: (_, __) => SliverToBoxAdapter(
+                  child: _RetryVideos(userId: widget.userId),
                 ),
                 data: (videos) {
                   if (videos.isEmpty) {
-                    return const SliverToBoxAdapter(
-                      child: _EmptyVideos(),
+                    return SliverToBoxAdapter(
+                      child: _RetryVideos(userId: widget.userId),
                     );
                   }
                   return SliverGrid(
@@ -185,16 +180,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
 // ─── Top bar (back + username) ────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.username});
+class _TopBar extends ConsumerWidget {
+  const _TopBar({required this.username, required this.userId});
   final String username;
+  final String userId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
         child: Row(
           children: [
             IconButton(
@@ -213,6 +209,14 @@ class _TopBar extends StatelessWidget {
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
+            ),
+            IconButton(
+              onPressed: () {
+                ref.invalidate(_userProfileProvider(userId));
+                ref.invalidate(_userVideosProvider(userId));
+              },
+              icon: const Icon(Icons.refresh_rounded,
+                  color: Colors.white54, size: 22),
             ),
           ],
         ),
@@ -493,23 +497,43 @@ class _GridTile extends StatelessWidget {
 
 // ─── Empty / loading / error ──────────────────────────────────────────────────
 
-class _EmptyVideos extends StatelessWidget {
-  const _EmptyVideos();
+class _RetryVideos extends ConsumerWidget {
+  const _RetryVideos({required this.userId});
+  final String userId;
 
   @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(48),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 32),
       child: Column(
         children: [
-          Icon(Icons.videocam_off_outlined, color: Colors.white24, size: 48),
-          SizedBox(height: 12),
-          Text(
-            'No videos yet',
+          const Icon(Icons.videocam_off_outlined,
+              color: Colors.white24, size: 48),
+          const SizedBox(height: 12),
+          const Text(
+            'No videos found',
             style: TextStyle(
                 color: Colors.white70,
                 fontSize: 15,
                 fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'This account may have no public videos',
+            style: TextStyle(color: Colors.white38, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: () => ref.invalidate(_userVideosProvider(userId)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white24),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('Retry'),
           ),
         ],
       ),

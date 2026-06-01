@@ -117,15 +117,43 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<FeedPage> getUserVideos(String userId, {String? cursor}) async {
-    // The path already contains the profile ID.
-    // The optional "id" query param is a numeric pagination cursor, not the user ID.
-    final params = <String, dynamic>{};
-    if (cursor != null) params['id'] = cursor;
-    final response = await _apiClient.get(
-      'api/v1/feed/account/$userId/cursor',
-      queryParameters: params.isEmpty ? null : params,
+    // Strategy:
+    //   First page  → GET /feed/account/{id}        (mirrors /feed/account/self)
+    //   Paginated   → GET /feed/account/{id}/cursor?id={cursor}&limit=20
+    // Always include limit=20 so the server doesn't silently return 0 items
+    // due to a missing required param.
+    if (cursor != null) {
+      final response = await _apiClient.get(
+        'api/v1/feed/account/$userId/cursor',
+        queryParameters: {'id': cursor, 'limit': 20},
+      );
+      if ((response.statusCode ?? 0) >= 200 &&
+          (response.statusCode ?? 0) < 300) {
+        return _parsePage(response.data);
+      }
+      return const FeedPage(videos: [], nextCursor: null);
+    }
+
+    // First page — try /feed/account/{id} first (same structure as /self)
+    final first = await _apiClient.get(
+      'api/v1/feed/account/$userId',
+      queryParameters: {'limit': 20},
     );
-    return _parsePage(response.data);
+    if ((first.statusCode ?? 0) >= 200 && (first.statusCode ?? 0) < 300) {
+      final page = _parsePage(first.data);
+      if (page.videos.isNotEmpty) return page;
+    }
+
+    // Fallback: /feed/account/{id}/cursor with limit only (no cursor id)
+    final fallback = await _apiClient.get(
+      'api/v1/feed/account/$userId/cursor',
+      queryParameters: {'limit': 20},
+    );
+    if ((fallback.statusCode ?? 0) >= 200 &&
+        (fallback.statusCode ?? 0) < 300) {
+      return _parsePage(fallback.data);
+    }
+    return const FeedPage(videos: [], nextCursor: null);
   }
 
   @override
