@@ -1,79 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:loops_flutter/features/feed/domain/models/feed_page.dart';
 import 'package:loops_flutter/features/feed/domain/models/video_model.dart';
 import 'package:loops_flutter/features/feed/presentation/screens/feed_view_screen.dart';
 import 'package:loops_flutter/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:loops_flutter/features/profile/domain/models/user_model.dart';
 
-// ─── Providers ────────────────────────────────────────────────────────────────
-
+// Single-use FutureProvider for profile info (no pagination needed)
 final _userProfileProvider =
     FutureProvider.family<UserModel?, String>((ref, userId) async {
   return ref.read(profileRepositoryProvider).getUserProfile(userId);
 });
-
-// Paginating video controller for a specific user
-final userVideosControllerProvider =
-    AsyncNotifierProviderFamily<UserVideosController, List<VideoModel>, String>(
-  UserVideosController.new,
-);
-
-class UserVideosController
-    extends FamilyAsyncNotifier<List<VideoModel>, String> {
-  String? _nextCursor;
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-
-  @override
-  FutureOr<List<VideoModel>> build(String userId) async {
-    final page = await _fetchPage();
-    _setCursor(page);
-    return page.videos;
-  }
-
-  Future<FeedPage> _fetchPage({String? cursor}) {
-    return ref
-        .read(profileRepositoryProvider)
-        .getUserVideos(arg, cursor: cursor);
-  }
-
-  void _setCursor(FeedPage page) {
-    _nextCursor = page.nextCursor;
-    _hasMore = _nextCursor != null && _nextCursor!.isNotEmpty;
-  }
-
-  Future<void> loadMore() async {
-    if (_isLoadingMore || !_hasMore || _nextCursor == null) return;
-    final current = state.asData?.value ?? const [];
-    _isLoadingMore = true;
-    try {
-      final page = await _fetchPage(cursor: _nextCursor);
-      _setCursor(page);
-      final seen = current.map((v) => v.id).toSet();
-      state = AsyncValue.data([
-        ...current,
-        ...page.videos.where((v) => !seen.contains(v.id)),
-      ]);
-    } catch (_) {
-      // keep existing items on pagination failure
-    } finally {
-      _isLoadingMore = false;
-    }
-  }
-
-  Future<void> refresh() async {
-    _nextCursor = null;
-    _hasMore = true;
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final page = await _fetchPage();
-      _setCursor(page);
-      return page.videos;
-    });
-  }
-}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -86,14 +23,26 @@ class UserProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
-  bool? _isFollowing;
+  // ── Follow state ──────────────────────────────────────────────────────────
+  bool _isFollowing = false;
   bool _isToggling = false;
+
+  // ── Video pagination state ────────────────────────────────────────────────
+  final List<VideoModel> _videos = [];
+  String? _nextCursor;
+  bool _hasMore = true;
+  bool _videosLoading = true;
+  bool _loadingMore = false;
+  bool _videosError = false;
+
+  // ── Scroll ────────────────────────────────────────────────────────────────
   late final ScrollController _scroll;
 
   @override
   void initState() {
     super.initState();
     _scroll = ScrollController()..addListener(_onScroll);
+    _loadVideos();
   }
 
   @override
@@ -102,20 +51,70 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     super.dispose();
   }
 
+  // ── Scroll listener ───────────────────────────────────────────────────────
+
   void _onScroll() {
     if (_scroll.position.pixels >=
         _scroll.position.maxScrollExtent - 400) {
-      ref
-          .read(userVideosControllerProvider(widget.userId).notifier)
-          .loadMore();
+      _loadMore();
     }
   }
+
+  // ── Data loading ──────────────────────────────────────────────────────────
+
+  Future<void> _loadVideos() async {
+    setState(() {
+      _videosLoading = true;
+      _videosError = false;
+      _videos.clear();
+      _nextCursor = null;
+      _hasMore = true;
+    });
+    try {
+      final page = await ref
+          .read(profileRepositoryProvider)
+          .getUserVideos(widget.userId);
+      if (!mounted) return;
+      setState(() {
+        _videos.addAll(page.videos);
+        _nextCursor = page.nextCursor;
+        _hasMore = page.nextCursor != null && page.nextCursor!.isNotEmpty;
+        _videosLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() {
+        _videosError = true;
+        _videosLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _nextCursor == null) return;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await ref
+          .read(profileRepositoryProvider)
+          .getUserVideos(widget.userId, cursor: _nextCursor);
+      if (!mounted) return;
+      final seen = _videos.map((v) => v.id).toSet();
+      setState(() {
+        _videos.addAll(page.videos.where((v) => !seen.contains(v.id)));
+        _nextCursor = page.nextCursor;
+        _hasMore = page.nextCursor != null && page.nextCursor!.isNotEmpty;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  // ── Follow / unfollow ─────────────────────────────────────────────────────
 
   Future<void> _toggleFollow() async {
     if (_isToggling) return;
     setState(() => _isToggling = true);
-
-    final wasFollowing = _isFollowing ?? false;
+    final wasFollowing = _isFollowing;
     setState(() => _isFollowing = !wasFollowing);
 
     final repo = ref.read(profileRepositoryProvider);
@@ -132,36 +131,32 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     if (mounted) setState(() => _isToggling = false);
   }
 
+  // ── Refresh everything ────────────────────────────────────────────────────
+
   void _refresh() {
     ref.invalidate(_userProfileProvider(widget.userId));
-    ref
-        .read(userVideosControllerProvider(widget.userId).notifier)
-        .refresh();
+    _loadVideos();
   }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(_userProfileProvider(widget.userId));
-    final videosAsync = ref.watch(userVideosControllerProvider(widget.userId));
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: profileAsync.when(
         loading: () => const _LoadingView(),
-        error: (e, _) => _ErrorView(message: 'Could not load profile'),
+        error: (_, __) => _ErrorView(message: 'Could not load profile'),
         data: (user) {
-          if (user == null) return _ErrorView(message: 'User not found');
-
-          if (_isFollowing == null && !user.isOwner) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _isFollowing = false);
-            });
+          if (user == null) {
+            return _ErrorView(message: 'User not found');
           }
-
           return CustomScrollView(
             controller: _scroll,
             slivers: [
-              // ── Top bar ──────────────────────────────────────────────────
+              // Top bar
               SliverToBoxAdapter(
                 child: _TopBar(
                   username: user.username,
@@ -169,7 +164,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 ),
               ),
 
-              // ── Profile header ────────────────────────────────────────────
+              // Profile header
               SliverToBoxAdapter(
                 child: _ProfileHeader(
                   user: user,
@@ -179,42 +174,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 ),
               ),
 
-              // ── Section divider ───────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.08)),
-                      bottom: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.08)),
-                    ),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.grid_on_rounded,
-                            color: Colors.white, size: 17),
-                        SizedBox(width: 6),
-                        Text(
-                          'Videos',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              // Section header
+              SliverToBoxAdapter(child: _SectionDivider()),
 
-              // ── Video grid ────────────────────────────────────────────────
-              videosAsync.when(
-                loading: () => const SliverToBoxAdapter(
+              // Video content
+              if (_videosLoading)
+                const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.all(48),
                     child: Center(
@@ -222,47 +187,50 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                           color: Colors.white, strokeWidth: 2),
                     ),
                   ),
-                ),
-                error: (_, __) => SliverToBoxAdapter(
-                  child: _RetryVideos(onRetry: _refresh),
-                ),
-                data: (videos) {
-                  if (videos.isEmpty) {
-                    return SliverToBoxAdapter(
-                      child: _RetryVideos(onRetry: _refresh),
-                    );
-                  }
-                  return SliverGrid(
-                    delegate: SliverChildBuilderDelegate(
-                      (ctx, i) => GestureDetector(
-                        onTap: () => Navigator.of(ctx).push(
-                          MaterialPageRoute(
-                            builder: (_) => FeedViewScreen(
-                              videos: videos,
-                              initialIndex: i,
-                            ),
+                )
+              else if (_videosError || _videos.isEmpty)
+                SliverToBoxAdapter(
+                  child: _RetryVideos(onRetry: _loadVideos),
+                )
+              else
+                SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => GestureDetector(
+                      onTap: () => Navigator.of(ctx).push(
+                        MaterialPageRoute(
+                          builder: (_) => FeedViewScreen(
+                            videos: _videos,
+                            initialIndex: i,
                           ),
                         ),
-                        child: _GridTile(video: videos[i]),
                       ),
-                      childCount: videos.length,
+                      child: _GridTile(video: _videos[i]),
                     ),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 1.5,
-                      mainAxisSpacing: 1.5,
-                      childAspectRatio: 9 / 16,
-                    ),
-                  );
-                },
-              ),
+                    childCount: _videos.length,
+                  ),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 1.5,
+                    mainAxisSpacing: 1.5,
+                    childAspectRatio: 9 / 16,
+                  ),
+                ),
 
-              // ── Loading-more indicator ────────────────────────────────────
-              if (videosAsync.hasValue &&
-                  (videosAsync.asData?.value.isNotEmpty ?? false))
+              // Load-more spinner
+              if (_loadingMore)
                 const SliverToBoxAdapter(
-                  child: _LoadMoreIndicator(),
+                  child: SizedBox(
+                    height: 48,
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white38),
+                      ),
+                    ),
+                  ),
                 ),
 
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
@@ -329,7 +297,7 @@ class _ProfileHeader extends StatelessWidget {
   });
 
   final UserModel user;
-  final bool? isFollowing;
+  final bool isFollowing;
   final bool isToggling;
   final VoidCallback? onFollowTap;
 
@@ -343,7 +311,6 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasBio = user.bio != null && user.bio!.trim().isNotEmpty;
     final hasName = user.name != null && user.name!.trim().isNotEmpty;
-    final following = isFollowing ?? false;
 
     return Column(
       children: [
@@ -377,10 +344,9 @@ class _ProfileHeader extends StatelessWidget {
         // Display name
         if (hasName) ...[
           const SizedBox(height: 3),
-          Text(
-            user.name!,
-            style: const TextStyle(color: Colors.white54, fontSize: 13),
-          ),
+          Text(user.name!,
+              style:
+                  const TextStyle(color: Colors.white54, fontSize: 13)),
         ],
 
         // Bio
@@ -392,10 +358,7 @@ class _ProfileHeader extends StatelessWidget {
               user.bio!,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.4,
-              ),
+                  color: Colors.white70, fontSize: 13, height: 1.4),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -423,7 +386,7 @@ class _ProfileHeader extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // Follow button
+        // Follow / Unfollow button
         if (onFollowTap != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -435,11 +398,11 @@ class _ProfileHeader extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   decoration: BoxDecoration(
-                    color: following
+                    color: isFollowing
                         ? Colors.white.withValues(alpha: 0.08)
                         : Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    border: following
+                    border: isFollowing
                         ? Border.all(
                             color: Colors.white.withValues(alpha: 0.20))
                         : null,
@@ -451,13 +414,17 @@ class _ProfileHeader extends StatelessWidget {
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: following ? Colors.white : Colors.black,
+                              color: isFollowing
+                                  ? Colors.white
+                                  : Colors.black,
                             ),
                           )
                         : Text(
-                            following ? 'Unfollow' : 'Follow',
+                            isFollowing ? 'Unfollow' : 'Follow',
                             style: TextStyle(
-                              color: following ? Colors.white : Colors.black,
+                              color: isFollowing
+                                  ? Colors.white
+                                  : Colors.black,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -470,6 +437,40 @@ class _ProfileHeader extends StatelessWidget {
 
         const SizedBox(height: 4),
       ],
+    );
+  }
+}
+
+// ─── Section divider ──────────────────────────────────────────────────────────
+
+class _SectionDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.grid_on_rounded, color: Colors.white, size: 17),
+            SizedBox(width: 6),
+            Text(
+              'Videos',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -488,23 +489,19 @@ class _Stat extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
-          ),
+          Text(value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              )),
           const SizedBox(height: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+              )),
         ],
       ),
     );
@@ -588,29 +585,7 @@ class _GridTile extends StatelessWidget {
   }
 }
 
-// ─── Loading more indicator ───────────────────────────────────────────────────
-
-class _LoadMoreIndicator extends ConsumerWidget {
-  const _LoadMoreIndicator();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Show a spinner only while actively loading more
-    return const SizedBox(
-      height: 48,
-      child: Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-              strokeWidth: 2, color: Colors.white38),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Empty / error states ─────────────────────────────────────────────────────
+// ─── Empty / retry ────────────────────────────────────────────────────────────
 
 class _RetryVideos extends StatelessWidget {
   const _RetryVideos({required this.onRetry});
@@ -625,13 +600,11 @@ class _RetryVideos extends StatelessWidget {
           const Icon(Icons.videocam_off_outlined,
               color: Colors.white24, size: 48),
           const SizedBox(height: 12),
-          const Text(
-            'No videos found',
-            style: TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-                fontWeight: FontWeight.w600),
-          ),
+          const Text('No videos found',
+              style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           const Text(
             'This account may have no public videos',
@@ -656,19 +629,18 @@ class _RetryVideos extends StatelessWidget {
   }
 }
 
+// ─── Loading / error scaffolds ────────────────────────────────────────────────
+
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: CircularProgressIndicator(
-            color: Colors.white, strokeWidth: 2),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+            child: CircularProgressIndicator(
+                color: Colors.white, strokeWidth: 2)),
+      );
 }
 
 class _ErrorView extends StatelessWidget {
@@ -676,28 +648,26 @@ class _ErrorView extends StatelessWidget {
   final String message;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.person_off_outlined,
-                color: Colors.white38, size: 52),
-            const SizedBox(height: 12),
-            Text(message,
-                style:
-                    const TextStyle(color: Colors.white70, fontSize: 15)),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-              child: const Text('Go back',
-                  style: TextStyle(color: Colors.white54)),
-            ),
-          ],
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.person_off_outlined,
+                  color: Colors.white38, size: 52),
+              const SizedBox(height: 12),
+              Text(message,
+                  style: const TextStyle(
+                      color: Colors.white70, fontSize: 15)),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                child: const Text('Go back',
+                    style: TextStyle(color: Colors.white54)),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
