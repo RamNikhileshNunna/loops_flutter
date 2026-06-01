@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -117,8 +119,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final repo = ref.read(videoUploadRepositoryProvider);
 
     final progress = ValueNotifier<double?>(0);
-    if (context.mounted) {
-      await showDialog(
+
+    // Show the progress dialog without awaiting it so the upload can run.
+    unawaited(
+      showDialog(
         context: context,
         barrierDismissible: false,
         builder: (dialogCtx) => ValueListenableBuilder<double?>(
@@ -151,8 +155,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             );
           },
         ),
-      );
-    }
+      ),
+    );
 
     try {
       await repo.uploadVideo(

@@ -16,7 +16,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   ProfileRepositoryImpl(this._apiClient);
 
-  static const String _myVideosPath = 'api/v1/feed/account/self';
+  static const String _myVideosPath = 'api/v1/studio/posts';
   static const String _myLikesPath = 'api/v1/account/videos/liked';
 
   FeedPage _parsePage(dynamic data) {

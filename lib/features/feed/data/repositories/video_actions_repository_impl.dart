@@ -45,10 +45,8 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
   @override
   Future<List<dynamic>> getVideoLikes(String videoId) async {
     try {
-      final response = await _apiClient.get('api/v1/video/likes/$videoId');
+      final response = await _apiClient.get('api/v1/video/$videoId/likes');
       if (response.statusCode == 200 && response.data != null) {
-        // Return raw data or map to models. Let's return the 'data' field usually
-        // If data is list, return it.
         final data = response.data['data'];
         if (data is List) {
           return data;
@@ -63,7 +61,7 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
   @override
   Future<List<dynamic>> getVideoComments(String videoId) async {
     try {
-      final response = await _apiClient.get('api/v1/video/comments/$videoId');
+      final response = await _apiClient.get('api/v1/video/$videoId/comments');
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data['data'];
         if (data is List) {
@@ -82,11 +80,8 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
     String commentId,
   ) async {
     try {
-      // API: /v1/video/comments/{id}/replies?cr={commentId}
-      // Assuming {id} is videoId based on likely REST structure for sub-resources
       final response = await _apiClient.get(
-        'api/v1/video/comments/$videoId/replies',
-        queryParameters: {'cr': commentId},
+        'api/v1/comments/$commentId/replies',
       );
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data['data'];
@@ -102,14 +97,12 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
 
   @override
   Future<bool> likeVideo(String videoId) async {
-    return _postWithCsrf('api/v1/video/like/$videoId');
+    return _postWithCsrf('api/v1/video/$videoId/like');
   }
 
   @override
   Future<bool> unlikeVideo(String videoId) async {
-    // Assuming unlike follows similar pattern or like is toggle.
-    // If explicit unlike exists:
-    return _postWithCsrf('api/v1/video/unlike/$videoId');
+    return _postWithCsrf('api/v1/video/$videoId/unlike');
   }
 
   @override
@@ -118,31 +111,32 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
     String comment, {
     String? parentId,
   }) async {
-    final Map<String, dynamic> data = {'comment': comment};
     if (parentId != null) {
-      final intParentId = int.tryParse(parentId);
-      if (intParentId != null && intParentId != 0) {
-        data['parent_id'] = intParentId;
-      }
+      return _postWithCsrf(
+        'api/v1/comments/$parentId/reply',
+        data: {'comment': comment},
+      );
     }
-    // POST /v1/video/comments/{vid}
-    return _postWithCsrf('api/v1/video/comments/$videoId', data: data);
+    return _postWithCsrf(
+      'api/v1/video/$videoId/comments',
+      data: {'comment': comment},
+    );
   }
 
   @override
   Future<bool> likeComment(String commentId) async {
-    return _postWithCsrf('api/v1/video/comments/like/$commentId');
+    return _postWithCsrf('api/v1/comments/$commentId/like');
   }
 
   @override
   Future<bool> unlikeComment(String commentId) async {
-    return _postWithCsrf('api/v1/video/comments/unlike/$commentId');
+    return _postWithCsrf('api/v1/comments/$commentId/unlike');
   }
 
   @override
   Future<void> deleteComment(String videoId, String commentId) async {
     try {
-      await _apiClient.post('api/v1/video/comments/delete/$commentId');
+      await _apiClient.post('api/v1/comments/$commentId/delete');
     } catch (e) {
       // Ignore errors for delete
     }

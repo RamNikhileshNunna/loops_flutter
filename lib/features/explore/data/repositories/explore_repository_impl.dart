@@ -20,7 +20,7 @@ class ExploreRepositoryImpl implements ExploreRepository {
   Future<List<UserModel>> getSuggestedAccounts() async {
     // Confirmed endpoint: api/v1/accounts/suggested
     try {
-      final response = await _apiClient.get('api/v1/accounts/suggested');
+      final response = await _apiClient.get('api/v1/account/suggested');
       final data = response.data['data'];
       if (data is List) {
         return data
