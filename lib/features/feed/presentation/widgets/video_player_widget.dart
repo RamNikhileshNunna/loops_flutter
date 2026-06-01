@@ -104,6 +104,14 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
     return url;
   }
 
+  static bool _isHlsUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('.m3u8') ||
+        lower.contains('/hls/') ||
+        lower.contains('manifest') ||
+        lower.contains('playlist');
+  }
+
   Future<void> _initVideo() async {
     String url = _absoluteUrl(widget.video.media.srcUrl);
 
@@ -123,7 +131,15 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
     }
 
     try {
-      final ctrl = VideoPlayerController.networkUrl(Uri.parse(url));
+      // Use formatHint: hls when the URL looks like an HLS stream so ExoPlayer
+      // always picks HlsMediaSource instead of ProgressiveMediaPeriod.
+      // Without this hint, ExoPlayer falls back to progressive for URLs that
+      // don't have a .m3u8 extension even though the content IS an HLS manifest,
+      // causing UnrecognizedInputFormatException (dataType=1 = DATA_TYPE_MANIFEST).
+      final ctrl = _isHlsUrl(url)
+          // ignore: deprecated_member_use — networkUrl has no formatHint
+          ? VideoPlayerController.network(url, formatHint: VideoFormat.hls)
+          : VideoPlayerController.networkUrl(Uri.parse(url));
       await ctrl.initialize();
       if (!mounted) {
         ctrl.dispose();

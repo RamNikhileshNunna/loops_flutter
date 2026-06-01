@@ -42,18 +42,23 @@ abstract class MediaModel with _$MediaModel {
 }
 
 String _readSrcUrl(Map json, String key) {
+  // Loops serves video primarily as HLS — prefer hls_url / hls first so
+  // ExoPlayer auto-detects .m3u8 and uses HlsMediaSource instead of
+  // ProgressiveMediaPeriod (which throws UnrecognizedInputFormatException).
   final candidates = [
+    json['hls_url'],
+    json['hls'],
     json['src_url'],
     json['src'],
     json['url'],
     json['video_url'],
     json['file'],
   ];
-  return candidates.firstWhere(
-        (value) => value != null && value.toString().isNotEmpty,
-        orElse: () => '',
-      )
-      as String;
+  final found = candidates.firstWhere(
+    (value) => value != null && value.toString().isNotEmpty,
+    orElse: () => '',
+  );
+  return found?.toString() ?? '';
 }
 
 String? _readThumbnailUrl(Map json, String key) {
