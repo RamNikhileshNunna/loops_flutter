@@ -27,15 +27,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
     final raw = data['data'];
     final List<dynamic> items = raw is List ? raw : const [];
 
-    String? nextCursor;
-    final meta = data['meta'];
-    if (meta is Map) {
-      final v = meta['next_cursor'] ?? meta['nextCursor'];
-      if (v != null) {
-        final s = v.toString();
-        if (s.isNotEmpty && s != 'null') nextCursor = s;
-      }
-    }
+    final nextCursor = extractNextCursor(data);
 
     final videos = items
         .whereType<Map>()
@@ -117,42 +109,37 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<FeedPage> getUserVideos(String userId, {String? cursor}) async {
-    // Strategy:
-    //   First page  → GET /feed/account/{id}        (mirrors /feed/account/self)
-    //   Paginated   → GET /feed/account/{id}/cursor?id={cursor}&limit=20
-    // Always include limit=20 so the server doesn't silently return 0 items
-    // due to a missing required param.
-    if (cursor != null) {
-      final response = await _apiClient.get(
-        'api/v1/feed/account/$userId/cursor',
-        queryParameters: {'id': cursor, 'limit': 20},
-      );
-      if ((response.statusCode ?? 0) >= 200 &&
-          (response.statusCode ?? 0) < 300) {
-        return _parsePage(response.data);
-      }
-      return const FeedPage(videos: [], nextCursor: null);
-    }
+    // Always use the documented /cursor endpoint — it is the only one that
+    // returns a next-page cursor (meta.next_cursor / links.next). The
+    // non-cursor /feed/account/{id} path returns a page with NO cursor, which
+    // silently caps the grid at the first page.
+    final params = <String, dynamic>{'limit': 20};
+    if (cursor != null && cursor.isNotEmpty) params['id'] = cursor;
 
-    // First page — try /feed/account/{id} first (same structure as /self)
-    final first = await _apiClient.get(
-      'api/v1/feed/account/$userId',
-      queryParameters: {'limit': 20},
-    );
-    if ((first.statusCode ?? 0) >= 200 && (first.statusCode ?? 0) < 300) {
-      final page = _parsePage(first.data);
-      if (page.videos.isNotEmpty) return page;
-    }
-
-    // Fallback: /feed/account/{id}/cursor with limit only (no cursor id)
-    final fallback = await _apiClient.get(
+    final response = await _apiClient.get(
       'api/v1/feed/account/$userId/cursor',
-      queryParameters: {'limit': 20},
+      queryParameters: params,
     );
-    if ((fallback.statusCode ?? 0) >= 200 &&
-        (fallback.statusCode ?? 0) < 300) {
-      return _parsePage(fallback.data);
+
+    final code = response.statusCode ?? 0;
+    if (code >= 200 && code < 300) {
+      final page = _parsePage(response.data);
+      if (page.videos.isNotEmpty || cursor != null) return page;
     }
+
+    // Fallback for servers that reject the cursor endpoint without an id:
+    // fetch the first page from the plain account feed (no pagination).
+    if (cursor == null) {
+      final alt = await _apiClient.get(
+        'api/v1/feed/account/$userId',
+        queryParameters: {'limit': 20},
+      );
+      final altCode = alt.statusCode ?? 0;
+      if (altCode >= 200 && altCode < 300) {
+        return _parsePage(alt.data);
+      }
+    }
+
     return const FeedPage(videos: [], nextCursor: null);
   }
 

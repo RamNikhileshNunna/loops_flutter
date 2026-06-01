@@ -120,15 +120,7 @@ class ExploreRepositoryImpl implements ExploreRepository {
     final raw = data['data'];
     final List<dynamic> items = raw is List ? raw : const [];
 
-    String? nextCursor;
-    final meta = data['meta'];
-    if (meta is Map) {
-      final v = meta['next_cursor'] ?? meta['nextCursor'];
-      if (v != null) {
-        final s = v.toString();
-        if (s.isNotEmpty && s != 'null') nextCursor = s;
-      }
-    }
+    final nextCursor = extractNextCursor(data);
 
     final videos = items
         .whereType<Map>()

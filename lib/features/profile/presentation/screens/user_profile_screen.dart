@@ -81,12 +81,28 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         _hasMore = page.nextCursor != null && page.nextCursor!.isNotEmpty;
         _videosLoading = false;
       });
+      _fillViewport();
     } catch (_) {
       if (mounted) setState(() {
         _videosError = true;
         _videosLoading = false;
       });
     }
+  }
+
+  /// If the first page is too short to fill the screen, the scroll listener
+  /// can never fire — so proactively fetch more until the grid is scrollable
+  /// (or there is nothing left to load).
+  void _fillViewport() {
+    if (!_hasMore) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !_scroll.hasClients) return;
+      final pos = _scroll.position;
+      if (pos.maxScrollExtent <= 0 && _hasMore && !_loadingMore) {
+        await _loadMore();
+        if (mounted) _fillViewport();
+      }
+    });
   }
 
   Future<void> _loadMore() async {
