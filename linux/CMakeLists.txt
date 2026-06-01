@@ -16,6 +16,13 @@ cmake_policy(SET CMP0063 NEW)
 # Load bundled libraries from the lib/ directory relative to the binary.
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 
+# Force the system linker. Depending on PATH at configure time, gcc may resolve
+# `ld` to the Flutter *snap*'s bundled linker (which ships an old glibc and
+# cannot link modern system libraries such as libmpv — hundreds of
+# `undefined reference ...@GLIBC_2.3x`). `-B/usr/bin` makes gcc find
+# /usr/bin/ld (system binutils) first, regardless of PATH.
+add_link_options("-B/usr/bin")
+
 # Root filesystem for cross-building.
 if(FLUTTER_TARGET_PLATFORM_SYSROOT)
   set(CMAKE_SYSROOT ${FLUTTER_TARGET_PLATFORM_SYSROOT})
