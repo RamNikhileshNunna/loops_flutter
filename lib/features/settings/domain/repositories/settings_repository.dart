@@ -14,7 +14,7 @@ abstract class SettingsRepository {
     required bool researchDataSharing,
   });
 
-  Future<bool> updateEmail({required String email});
+  Future<bool> updateEmail({required String email, String? password});
 
   Future<bool> updateAvatar(String filePath);
 

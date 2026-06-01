@@ -17,6 +17,8 @@ import 'features/feed/data/repositories/video_upload_repository_impl.dart';
 import 'features/profile/presentation/screens/user_profile_screen.dart';
 import 'package:dio/dio.dart';
 
+// ─── Shell / main scaffold ────────────────────────────────────────────────────
+
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, required this.child});
   final Widget child;
@@ -26,136 +28,116 @@ class MainScreen extends ConsumerStatefulWidget {
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
-  final List<int> _history = [];
-  int _currentIndex = 0;
+  // Tab index — never 2 (upload is an action, not a destination)
+  int _activeTab = 0;
+  final List<int> _tabHistory = [0];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _updateIndexIsolate();
+    _syncTabFromRoute();
   }
 
-  void _updateIndexIsolate() {
-    final location = GoRouterState.of(context).uri.toString();
-    int newIndex = 0;
-    if (location.startsWith('/explore')) {
-      newIndex = 1;
-    } else if (location.startsWith('/activity')) {
-      newIndex = 3;
-    } else if (location.startsWith('/profile')) {
-      newIndex = 4;
-    }
+  void _syncTabFromRoute() {
+    final loc = GoRouterState.of(context).uri.toString();
+    final idx = loc.startsWith('/explore')
+        ? 1
+        : loc.startsWith('/activity')
+            ? 3
+            : loc.startsWith('/profile')
+                ? 4
+                : 0;
 
-    // Create history entry if it's a new visit (not just a rebuild)
-    // We check if the newIndex is different from the last history item.
-    if (_history.isEmpty || _history.last != newIndex) {
-      _history.add(newIndex);
+    if (idx != _activeTab) {
+      setState(() => _activeTab = idx);
+      if (_tabHistory.isEmpty || _tabHistory.last != idx) {
+        _tabHistory.add(idx);
+        if (_tabHistory.length > 12) _tabHistory.removeAt(0);
+      }
     }
-
-    // Keep history manageable
-    if (_history.length > 10) {
-      _history.removeAt(0);
-    }
-
-    _currentIndex = newIndex;
   }
 
-  void _onTabTapped(int index) {
-    if (index == _currentIndex) return;
-
-    switch (index) {
+  void _navigateTo(int idx) {
+    if (idx == _activeTab) return;
+    switch (idx) {
       case 0:
         context.go('/');
-        break;
       case 1:
         context.go('/explore');
-        break;
-      case 2:
-        _pickAndUpload(context, ref);
-        return;
       case 3:
         context.go('/activity');
-        break;
       case 4:
         context.go('/profile');
-        break;
     }
   }
 
-  Future<void> _pickAndUpload(BuildContext context, WidgetRef ref) async {
+  // ── Upload flow ──────────────────────────────────────────────────────────
+
+  Future<void> _startUpload() async {
     final picker = ImagePicker();
     final messenger = ScaffoldMessenger.of(context);
 
     final XFile? picked = await picker.pickVideo(source: ImageSource.gallery);
     if (picked == null) return;
 
+    if (!context.mounted) return;
+
+    // Caption dialog
     String? caption;
-    if (context.mounted) {
-      caption = await showDialog<String>(
-        context: context,
-        builder: (ctx) {
-          final controller = TextEditingController();
-          return AlertDialog(
-            title: const Text('Add a caption'),
-            content: TextField(
-              controller: controller,
-              decoration: const InputDecoration(hintText: 'Optional caption'),
+    caption = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final ctrl = TextEditingController();
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Add a caption',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: TextField(
+            controller: ctrl,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Say something about your video…',
+              hintStyle: const TextStyle(color: Colors.white38),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.07),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Skip'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-                child: const Text('Upload'),
-              ),
-            ],
-          );
-        },
-      );
-    }
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child:
+                  const Text('Skip', style: TextStyle(color: Colors.white54)),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black),
+              onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
+              child: const Text('Upload'),
+            ),
+          ],
+        );
+      },
+    );
 
     if (!context.mounted) return;
+
     final repo = ref.read(videoUploadRepositoryProvider);
+    final progress = ValueNotifier<double>(0.0);
 
-    final progress = ValueNotifier<double?>(0);
-
-    // Show the progress dialog without awaiting it so the upload can run.
+    // Show progress dialog (non-blocking — upload runs in parallel)
     unawaited(
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (dialogCtx) => ValueListenableBuilder<double?>(
-          valueListenable: progress,
-          builder: (ctx, value, child) {
-            final display = value != null
-                ? (value * 100).clamp(0, 100).toStringAsFixed(0)
-                : '--';
-            return AlertDialog(
-              backgroundColor: Colors.black87,
-              title: const Text(
-                'Uploading...',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LinearProgressIndicator(
-                    value: value,
-                    color: Colors.white,
-                    backgroundColor: Colors.white24,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '$display%',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+        builder: (_) => _UploadProgressDialog(progress: progress),
       ),
     );
 
@@ -164,102 +146,250 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         file: picked,
         caption: caption,
         onProgress: (sent, total) {
-          if (total > 0) {
-            progress.value = sent / total;
-          }
+          if (total > 0) progress.value = sent / total;
         },
       );
-
       if (context.mounted) {
-        Navigator.of(context).pop(); // close progress dialog
+        Navigator.of(context).pop();
         messenger.showSnackBar(
-          const SnackBar(content: Text('Upload complete')),
+          const SnackBar(content: Text('Video uploaded successfully!')),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        Navigator.of(context).pop(); // close progress dialog
-        String message = 'Upload failed';
+        Navigator.of(context).pop();
+        String msg = 'Upload failed';
         if (e is DioException) {
-          message += ': ${e.response?.statusMessage ?? e.message}';
-          if (e.response?.data != null) {
-            message += ' ${e.response?.data}';
-          }
+          msg += ': ${e.response?.data?['message'] ?? e.message}';
         } else {
-          message += ': $e';
+          msg += ': $e';
         }
-        messenger.showSnackBar(SnackBar(content: Text(message)));
+        messenger.showSnackBar(SnackBar(content: Text(msg)));
       }
     }
   }
 
+  // ── Back button ──────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final canPopInternal = _history.length > 1;
+    final canGoBack = _tabHistory.length > 1;
 
     return PopScope(
-      canPop: !canPopInternal,
-      onPopInvokedWithResult: (didPop, result) async {
+      canPop: !canGoBack,
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-
-        setState(() {
-          _history.removeLast();
-        });
-
-        final prevIndex = _history.last;
-
-        switch (prevIndex) {
-          case 0:
-            context.go('/');
-            break;
-          case 1:
-            context.go('/explore');
-            break;
-          case 3:
-            context.go('/activity');
-            break;
-          case 4:
-            context.go('/profile');
-            break;
-        }
+        setState(() => _tabHistory.removeLast());
+        _navigateTo(_tabHistory.last);
       },
       child: Scaffold(
+        backgroundColor: Colors.black,
+        extendBody: true, // video bleeds behind the nav bar
         body: widget.child,
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          onPressed: () => _pickAndUpload(context, ref),
-          child: const Icon(Icons.add),
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          backgroundColor: Colors.black,
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.grey,
-          type: BottomNavigationBarType.fixed,
-          currentIndex: _currentIndex,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.explore),
-              label: 'Explore',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.add_circle_outline),
-              label: 'Upload',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.notifications),
-              label: 'Activity',
-            ),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          ],
-          onTap: _onTabTapped,
+        bottomNavigationBar: _BottomNav(
+          activeTab: _activeTab,
+          onTabTap: _navigateTo,
+          onUploadTap: _startUpload,
         ),
       ),
     );
   }
 }
+
+// ─── Custom bottom nav bar ────────────────────────────────────────────────────
+
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({
+    required this.activeTab,
+    required this.onTabTap,
+    required this.onUploadTap,
+  });
+
+  final int activeTab;
+  final void Function(int) onTabTap;
+  final VoidCallback onUploadTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.85),
+            Colors.black,
+          ],
+          stops: const [0.0, 0.4, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 58,
+          child: Row(
+            children: [
+              _NavItem(
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                label: 'Home',
+                active: activeTab == 0,
+                onTap: () => onTabTap(0),
+              ),
+              _NavItem(
+                icon: Icons.explore_outlined,
+                activeIcon: Icons.explore_rounded,
+                label: 'Explore',
+                active: activeTab == 1,
+                onTap: () => onTabTap(1),
+              ),
+
+              // Upload button — centre, distinctive
+              Expanded(
+                child: GestureDetector(
+                  onTap: onUploadTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Center(
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        color: Colors.black,
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              _NavItem(
+                icon: Icons.notifications_none_rounded,
+                activeIcon: Icons.notifications_rounded,
+                label: 'Activity',
+                active: activeTab == 3,
+                onTap: () => onTabTap(3),
+              ),
+              _NavItem(
+                icon: Icons.person_outline_rounded,
+                activeIcon: Icons.person_rounded,
+                label: 'Profile',
+                active: activeTab == 4,
+                onTap: () => onTabTap(4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: Icon(
+                active ? activeIcon : icon,
+                key: ValueKey(active),
+                color: active ? Colors.white : Colors.white38,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 150),
+              style: TextStyle(
+                color: active ? Colors.white : Colors.white38,
+                fontSize: 10,
+                fontWeight:
+                    active ? FontWeight.w600 : FontWeight.w400,
+              ),
+              child: Text(label),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Upload progress dialog ───────────────────────────────────────────────────
+
+class _UploadProgressDialog extends StatelessWidget {
+  const _UploadProgressDialog({required this.progress});
+  final ValueNotifier<double> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text(
+        'Uploading…',
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+      ),
+      content: ValueListenableBuilder<double>(
+        valueListenable: progress,
+        builder: (_, value, __) {
+          final pct = (value * 100).clamp(0.0, 100.0);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: value,
+                  minHeight: 6,
+                  backgroundColor: Colors.white12,
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${pct.toStringAsFixed(0)}%',
+                style:
+                    const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── App entry ────────────────────────────────────────────────────────────────
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -283,39 +413,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = await authRepo.isAuthenticated();
       final isLoginPage = state.matchedLocation == '/login';
 
-      if (!isAuthenticated && !isLoginPage) {
-        return '/login';
-      }
-
-      if (isAuthenticated && isLoginPage) {
-        return '/';
-      }
-
+      if (!isAuthenticated && !isLoginPage) return '/login';
+      if (isAuthenticated && isLoginPage) return '/';
       return null;
     },
     routes: [
       ShellRoute(
         builder: (context, state, child) => MainScreen(child: child),
         routes: [
-          GoRoute(path: '/', builder: (context, state) => const FeedScreen()),
-          GoRoute(
-            path: '/explore',
-            builder: (context, state) => const ExploreScreen(),
-          ),
-          GoRoute(
-            path: '/activity',
-            builder: (context, state) => const ActivityScreen(),
-          ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfileScreen(),
-          ),
+          GoRoute(path: '/', builder: (_, __) => const FeedScreen()),
+          GoRoute(path: '/explore', builder: (_, __) => const ExploreScreen()),
+          GoRoute(path: '/activity', builder: (_, __) => const ActivityScreen()),
+          GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(
         path: '/user/:id',
-        builder: (context, state) =>
+        builder: (_, state) =>
             UserProfileScreen(userId: state.pathParameters['id']!),
       ),
     ],
@@ -327,14 +442,12 @@ class LoopsApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
-
     return MaterialApp.router(
-      title: 'Loops Expo',
+      title: 'Loops',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark, // Force dark for now
-      routerConfig: router,
+      themeMode: ThemeMode.dark,
+      routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
     );
   }

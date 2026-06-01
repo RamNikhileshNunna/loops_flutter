@@ -66,11 +66,12 @@ class SettingsRepositoryImpl implements SettingsRepository {
     );
   }
 
+  // POST /api/v1/account/settings/email/update — requires email + current password
   @override
-  Future<bool> updateEmail({required String email}) async {
+  Future<bool> updateEmail({required String email, String? password}) async {
     return _postWithCsrf(
-      'api/v1/account/settings/update-email',
-      data: {'email': email},
+      'api/v1/account/settings/email/update',
+      data: {'email': email, if (password != null) 'password': password},
     );
   }
 
@@ -82,21 +83,23 @@ class SettingsRepositoryImpl implements SettingsRepository {
       final subtype = ext == 'png'
           ? 'png'
           : ext == 'gif'
-          ? 'gif'
-          : 'jpeg';
+              ? 'gif'
+              : 'jpeg';
       final multipart = await MultipartFile.fromFile(
         filePath,
         filename: 'avatar.$ext',
         contentType: MediaType('image', subtype),
       );
       final form = FormData.fromMap({'avatar': multipart});
+      // Must NOT send Content-Type header manually — Dio sets it with boundary
       final response = await _apiClient.post(
         'api/v1/account/settings/update-avatar',
         data: form,
+        options: Options(contentType: 'multipart/form-data'),
       );
-      return response.statusCode == 200 ||
-          response.statusCode == 201 ||
-          response.statusCode == 204;
+      return response.statusCode != null &&
+          response.statusCode! >= 200 &&
+          response.statusCode! < 300;
     } catch (e) {
       return false;
     }
@@ -105,9 +108,14 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Map<String, dynamic>?> getPrivacySettings() async {
     try {
-      final response = await _apiClient.get('api/v1/account/settings/privacy');
-      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
+      final response =
+          await _apiClient.get('api/v1/account/settings/privacy');
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data is Map<String, dynamic>) return data;
+        if (data['data'] is Map<String, dynamic>) {
+          return data['data'] as Map<String, dynamic>;
+        }
       }
       return null;
     } catch (e) {
@@ -115,6 +123,7 @@ class SettingsRepositoryImpl implements SettingsRepository {
     }
   }
 
+  // Field is "discoverable" (not "is_private")
   @override
   Future<bool> updatePrivacySettings(Map<String, dynamic> settings) async {
     return _postWithCsrf('api/v1/account/settings/privacy', data: settings);

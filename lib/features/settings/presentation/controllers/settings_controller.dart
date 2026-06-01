@@ -68,10 +68,11 @@ class SettingsController extends AsyncNotifier<void> {
     }
   }
 
-  Future<bool> updateEmail({required String email}) async {
+  Future<bool> updateEmail({required String email, String? password}) async {
     state = const AsyncValue.loading();
     try {
-      final success = await _repository.updateEmail(email: email);
+      final success =
+          await _repository.updateEmail(email: email, password: password);
       state = const AsyncValue.data(null);
       return success;
     } catch (e, st) {
