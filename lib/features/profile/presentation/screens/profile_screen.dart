@@ -452,6 +452,9 @@ class _GridTile extends StatelessWidget {
             ? CachedNetworkImage(
                 imageUrl: thumbnailUrl!,
                 fit: BoxFit.cover,
+                // Decode at grid-tile resolution, not full source — a 3-col
+                // grid never needs more than ~400px wide, saving lots of RAM.
+                memCacheWidth: 400,
                 placeholder: (_, __) =>
                     Container(color: const Color(0xFF111111)),
                 errorWidget: (_, __, ___) => _placeholder(),

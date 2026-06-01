@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -393,6 +394,11 @@ class _UploadProgressDialog extends StatelessWidget {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Replace the default red error screen with a quiet, on-brand placeholder so
+  // an isolated render error on one device never shows a scary crash overlay.
+  ErrorWidget.builder = (details) => const _SafeErrorWidget();
+
   final prefs = await SharedPreferences.getInstance();
 
   runApp(
@@ -403,6 +409,20 @@ Future<void> main() async {
       child: const LoopsApp(),
     ),
   );
+}
+
+class _SafeErrorWidget extends StatelessWidget {
+  const _SafeErrorWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Icon(Icons.broken_image_outlined, color: Colors.white24, size: 32),
+      ),
+    );
+  }
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -449,6 +469,34 @@ class LoopsApp extends ConsumerWidget {
       themeMode: ThemeMode.dark,
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const _AppScrollBehavior(),
+      builder: (context, child) {
+        // Clamp text scaling so devices with very large system font settings
+        // can't overflow the fixed-size video overlays and nav bars.
+        final mq = MediaQuery.of(context);
+        final clamped = mq.textScaler.clamp(
+          minScaleFactor: 0.85,
+          maxScaleFactor: 1.2,
+        );
+        return MediaQuery(
+          data: mq.copyWith(textScaler: clamped),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
+}
+
+/// Enables smooth dragging with touch, mouse and trackpad on every platform
+/// (desktop/web included) so the feed and grids scroll consistently anywhere.
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
 }

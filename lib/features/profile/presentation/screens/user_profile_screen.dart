@@ -536,6 +536,7 @@ class _GridTile extends StatelessWidget {
             ? CachedNetworkImage(
                 imageUrl: thumb,
                 fit: BoxFit.cover,
+                memCacheWidth: 400,
                 placeholder: (_, __) =>
                     const ColoredBox(color: Color(0xFF111111)),
                 errorWidget: (_, __, ___) =>

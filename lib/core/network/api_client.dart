@@ -4,7 +4,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io' show Directory, File, Platform;
+import 'dart:io' show Directory, File, IOException, Platform;
 
 import '../storage/storage_service.dart';
 import '../utils/logger.dart';
@@ -24,8 +24,11 @@ class ApiClient {
     : _cookieJar = DefaultCookieJar(),
       _dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
+          // Slightly longer timeouts tolerate slow/3G mobile networks while
+          // still failing fast enough to surface real connectivity errors.
+          connectTimeout: const Duration(seconds: 20),
+          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 30),
           followRedirects: true,
           validateStatus: (code) => code != null && code >= 200 && code < 500,
         ),
@@ -33,14 +36,20 @@ class ApiClient {
     _initCookieJar();
     _dio.interceptors.add(CookieManager(_cookieJar));
 
+    // Retry transient network failures (timeouts / dropped connections) with
+    // exponential backoff. Only idempotent GETs are retried automatically.
+    _dio.interceptors.add(_RetryInterceptor(_dio));
+
     if (kDebugMode) {
+      // Log metadata only — dumping full video-feed response bodies in debug
+      // is slow and floods the console. Bodies stay off.
       _dio.interceptors.add(
         LogInterceptor(
-          request: true,
-          requestHeader: true,
-          requestBody: true,
-          responseHeader: true,
-          responseBody: true,
+          request: false,
+          requestHeader: false,
+          requestBody: false,
+          responseHeader: false,
+          responseBody: false,
           error: true,
         ),
       );
@@ -248,6 +257,60 @@ class ApiClient {
       AppLogger.log('Cleared cookies');
     } catch (e) {
       AppLogger.error('Failed to clear cookies', e);
+    }
+  }
+}
+
+/// Retries transient network failures with exponential backoff.
+///
+/// Only GET requests are retried (they are idempotent). Connection/timeout
+/// errors are retried up to [_maxRetries] times; 4xx/5xx responses are not
+/// retried because validateStatus already lets them through as responses.
+class _RetryInterceptor extends Interceptor {
+  _RetryInterceptor(this._dio);
+
+  final Dio _dio;
+  static const int _maxRetries = 2;
+  static const List<Duration> _delays = [
+    Duration(milliseconds: 400),
+    Duration(milliseconds: 1000),
+  ];
+
+  bool _isTransient(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.connectionError:
+        return true;
+      case DioExceptionType.unknown:
+        return e.error is IOException;
+      default:
+        return false;
+    }
+  }
+
+  @override
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    final options = err.requestOptions;
+    final isGet = options.method.toUpperCase() == 'GET';
+    final attempt = (options.extra['retry_attempt'] as int?) ?? 0;
+
+    if (!isGet || !_isTransient(err) || attempt >= _maxRetries) {
+      return handler.next(err);
+    }
+
+    await Future<void>.delayed(_delays[attempt]);
+    options.extra['retry_attempt'] = attempt + 1;
+
+    try {
+      final response = await _dio.fetch(options);
+      return handler.resolve(response);
+    } on DioException catch (e) {
+      return handler.next(e);
     }
   }
 }

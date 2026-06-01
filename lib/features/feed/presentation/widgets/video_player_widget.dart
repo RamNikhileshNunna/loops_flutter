@@ -28,7 +28,7 @@ class VideoPlayerWidget extends ConsumerStatefulWidget {
 }
 
 class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   VideoPlayerController? _controller;
   bool _initialized = false;
   String? _errorMessage;
@@ -48,10 +48,16 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
 
   // Route awareness — pause when another screen is pushed on top
   bool _routeIsActive = true;
+  // App-lifecycle awareness — pause when the app is backgrounded
+  bool _appIsResumed = true;
+
+  bool get _shouldPlay =>
+      widget.isActive && _routeIsActive && _appIsResumed && _initialized;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _isLiked = widget.video.hasLiked;
     _likeCount = widget.video.likes;
     _heartAnim = AnimationController(
@@ -62,17 +68,22 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final resumed = state == AppLifecycleState.resumed;
+    if (resumed == _appIsResumed) return;
+    _appIsResumed = resumed;
+    // Pause playback (and audio) whenever the app leaves the foreground.
+    _shouldPlay ? _play() : _pause();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // isCurrent is false when another route is pushed on top of this one.
     final routeActive = ModalRoute.of(context)?.isCurrent ?? true;
     if (_routeIsActive == routeActive) return;
     _routeIsActive = routeActive;
-    if (!routeActive) {
-      _pause();
-    } else if (widget.isActive && _initialized) {
-      _play();
-    }
+    _shouldPlay ? _play() : _pause();
   }
 
   @override
@@ -86,11 +97,7 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
       _initVideo();
     }
     if (widget.isActive != oldWidget.isActive) {
-      if (widget.isActive && _routeIsActive) {
-        _play();
-      } else {
-        _pause();
-      }
+      _shouldPlay ? _play() : _pause();
     }
   }
 
@@ -150,7 +157,7 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
         _initialized = true;
         _errorMessage = null;
       });
-      if (widget.isActive && _routeIsActive) _play();
+      if (_shouldPlay) _play();
     } catch (e) {
       if (mounted) setState(() => _errorMessage = 'Failed to load video');
     }
@@ -238,6 +245,7 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _iconTimer?.cancel();
     _heartAnim.dispose();
     _controller?.dispose();
@@ -258,7 +266,9 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
         fit: StackFit.expand,
         children: [
           // ── 1. Video / placeholder ──────────────────────────────────────
-          _buildVideoLayer(),
+          // RepaintBoundary isolates the video texture so overlay state
+          // changes (like, heart burst, play icon, progress) never repaint it.
+          RepaintBoundary(child: _buildVideoLayer()),
 
           // ── 2. Bottom gradient ──────────────────────────────────────────
           Positioned.fill(
@@ -575,19 +585,23 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
 
   Widget _buildProgressBar() {
     if (!_initialized || _controller == null) return const SizedBox.shrink();
-    return ValueListenableBuilder(
-      valueListenable: _controller!,
-      builder: (_, VideoPlayerValue v, __) {
-        final total = v.duration.inMilliseconds;
-        final pos = v.position.inMilliseconds;
-        final progress = total > 0 ? (pos / total).clamp(0.0, 1.0) : 0.0;
-        return LinearProgressIndicator(
-          value: progress,
-          minHeight: 2,
-          backgroundColor: Colors.white24,
-          valueColor: const AlwaysStoppedAnimation(Colors.white),
-        );
-      },
+    // The progress bar ticks many times per second; RepaintBoundary keeps
+    // those repaints from invalidating the rest of the overlay.
+    return RepaintBoundary(
+      child: ValueListenableBuilder(
+        valueListenable: _controller!,
+        builder: (_, VideoPlayerValue v, __) {
+          final total = v.duration.inMilliseconds;
+          final pos = v.position.inMilliseconds;
+          final progress = total > 0 ? (pos / total).clamp(0.0, 1.0) : 0.0;
+          return LinearProgressIndicator(
+            value: progress,
+            minHeight: 2,
+            backgroundColor: Colors.white24,
+            valueColor: const AlwaysStoppedAnimation(Colors.white),
+          );
+        },
+      ),
     );
   }
 

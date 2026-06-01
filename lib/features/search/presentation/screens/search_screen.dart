@@ -220,6 +220,7 @@ class _VideoResults extends StatelessWidget {
                     ? CachedNetworkImage(
                         imageUrl: thumbnail,
                         fit: BoxFit.cover,
+                        memCacheWidth: 400,
                         placeholder: (_, __) =>
                             Container(color: Colors.grey[900]),
                         errorWidget: (_, __, ___) =>

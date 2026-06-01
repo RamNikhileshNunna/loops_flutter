@@ -51,6 +51,10 @@ class _FeedViewState extends State<FeedView> {
     return PageView.builder(
       controller: _pageController,
       scrollDirection: Axis.vertical,
+      // Build the adjacent pages ahead of time so the next video's controller
+      // initialises and buffers before the user finishes swiping — giving
+      // near-instant playback instead of a black-frame + spinner each time.
+      allowImplicitScrolling: true,
       itemCount: widget.videos.length,
       onPageChanged: (index) {
         setState(() => _currentIndex = index);
@@ -59,6 +63,9 @@ class _FeedViewState extends State<FeedView> {
         }
       },
       itemBuilder: (context, index) => VideoPlayerWidget(
+        // Stable key keeps each page's controller bound to its video while
+        // pages are recycled, preventing needless re-initialisation.
+        key: ValueKey(widget.videos[index].id),
         video: widget.videos[index],
         isActive: index == _currentIndex,
       ),
