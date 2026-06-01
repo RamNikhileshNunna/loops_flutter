@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +17,8 @@ final _userVideosProvider =
   return page.videos;
 });
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 class UserProfileScreen extends ConsumerStatefulWidget {
   const UserProfileScreen({super.key, required this.userId});
   final String userId;
@@ -29,29 +29,27 @@ class UserProfileScreen extends ConsumerStatefulWidget {
 
 class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool? _isFollowing;
-  bool _isTogglingFollow = false;
+  bool _isToggling = false;
 
   Future<void> _toggleFollow() async {
-    if (_isTogglingFollow) return;
-    setState(() => _isTogglingFollow = true);
+    if (_isToggling) return;
+    setState(() => _isToggling = true);
 
-    final repo = ref.read(profileRepositoryProvider);
     final wasFollowing = _isFollowing ?? false;
-
     setState(() => _isFollowing = !wasFollowing);
 
-    final success = wasFollowing
+    final repo = ref.read(profileRepositoryProvider);
+    final ok = wasFollowing
         ? await repo.unfollowUser(widget.userId)
         : await repo.followUser(widget.userId);
 
-    if (!success && mounted) {
+    if (!ok && mounted) {
       setState(() => _isFollowing = wasFollowing);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Action failed. Please try again.')),
       );
     }
-
-    if (mounted) setState(() => _isTogglingFollow = false);
+    if (mounted) setState(() => _isToggling = false);
   }
 
   @override
@@ -61,148 +59,121 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: profileAsync.maybeWhen(
-          data: (user) => Text(
-            user != null ? '@${user.username}' : 'Profile',
-            style: const TextStyle(color: Colors.white),
-          ),
-          orElse: () => const Text('Profile', style: TextStyle(color: Colors.white)),
-        ),
-      ),
       body: profileAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator(color: Colors.white)),
-        error: (e, _) => Center(
-          child: Text('Error: $e', style: const TextStyle(color: Colors.white)),
-        ),
+        loading: () => const _LoadingView(),
+        error: (e, _) => _ErrorView(message: 'Could not load profile'),
         data: (user) {
-          if (user == null) {
-            return const Center(
-              child: Text(
-                'User not found',
-                style: TextStyle(color: Colors.white70),
-              ),
-            );
-          }
+          if (user == null) return _ErrorView(message: 'User not found');
 
-          if (_isFollowing == null) {
+          // Initialise follow state on first load
+          if (_isFollowing == null && !user.isOwner) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() => _isFollowing = user.isOwner ? null : false);
-              }
+              if (mounted) setState(() => _isFollowing = false);
             });
           }
 
           return CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(child: _ProfileHeader(user: user)),
-              if (!user.isOwner)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: ElevatedButton(
-                      onPressed: _isTogglingFollow ? null : _toggleFollow,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: (_isFollowing ?? false)
-                            ? Colors.transparent
-                            : Colors.white,
-                        foregroundColor: (_isFollowing ?? false)
-                            ? Colors.white
-                            : Colors.black,
-                        side: const BorderSide(color: Colors.white30),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: _isTogglingFollow
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text((_isFollowing ?? false) ? 'Unfollow' : 'Follow'),
+              // ── Top bar ─────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _TopBar(username: user.username),
+              ),
+
+              // ── Profile header ───────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _ProfileHeader(
+                  user: user,
+                  isFollowing: _isFollowing,
+                  isToggling: _isToggling,
+                  onFollowTap: user.isOwner ? null : _toggleFollow,
+                ),
+              ),
+
+              // ── Tab-bar look-alike divider ────────────────────────────────
+              SliverToBoxAdapter(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.08)),
+                      bottom: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.08)),
                     ),
                   ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Videos',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.bold,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.grid_on_rounded,
+                            color: Colors.white, size: 17),
+                        SizedBox(width: 6),
+                        Text(
+                          'Videos',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+              // ── Video grid ────────────────────────────────────────────────
               videosAsync.when(
                 loading: () => const SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(32),
+                    padding: EdgeInsets.all(48),
                     child: Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
                     ),
                   ),
                 ),
-                error: (e, _) => SliverToBoxAdapter(
-                  child: Center(
-                    child: Text(
-                      'Error loading videos',
-                      style: const TextStyle(color: Colors.white54),
+                error: (_, __) => const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(
+                      child: Text('Could not load videos',
+                          style: TextStyle(color: Colors.white38)),
                     ),
                   ),
                 ),
                 data: (videos) {
                   if (videos.isEmpty) {
                     return const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Center(
-                          child: Text(
-                            'No videos yet',
-                            style: TextStyle(color: Colors.white54),
-                          ),
-                        ),
-                      ),
+                      child: _EmptyVideos(),
                     );
                   }
-                  return SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    sliver: SliverGrid(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final v = videos[index];
-                          return GestureDetector(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => FeedViewScreen(
-                                  videos: videos,
-                                  initialIndex: index,
-                                ),
-                              ),
+                  return SliverGrid(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => GestureDetector(
+                        onTap: () => Navigator.of(ctx).push(
+                          MaterialPageRoute(
+                            builder: (_) => FeedViewScreen(
+                              videos: videos,
+                              initialIndex: i,
                             ),
-                            child: _VideoTile(video: v),
-                          );
-                        },
-                        childCount: videos.length,
+                          ),
+                        ),
+                        child: _GridTile(video: videos[i]),
                       ),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 4,
-                        mainAxisSpacing: 4,
-                        childAspectRatio: 9 / 16,
-                      ),
+                      childCount: videos.length,
+                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 1.5,
+                      mainAxisSpacing: 1.5,
+                      childAspectRatio: 9 / 16,
                     ),
                   );
                 },
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           );
@@ -212,9 +183,58 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 }
 
+// ─── Top bar (back + username) ────────────────────────────────────────────────
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.username});
+  final String username;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 20),
+            ),
+            Expanded(
+              child: Text(
+                '@$username',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Profile header ───────────────────────────────────────────────────────────
+
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.user});
+  const _ProfileHeader({
+    required this.user,
+    required this.isFollowing,
+    required this.isToggling,
+    required this.onFollowTap,
+  });
+
   final UserModel user;
+  final bool? isFollowing;
+  final bool isToggling;
+  final VoidCallback? onFollowTap;
 
   String _fmt(int v) {
     if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
@@ -224,138 +244,318 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasBio = user.bio != null && user.bio!.trim().isNotEmpty;
+    final hasName = user.name != null && user.name!.trim().isNotEmpty;
+    final following = isFollowing ?? false;
+
     return Column(
       children: [
         const SizedBox(height: 16),
+
+        // ── Avatar ────────────────────────────────────────────────────────
         CircleAvatar(
-          radius: 46,
-          backgroundColor: Colors.grey.shade900,
+          radius: 48,
+          backgroundColor: const Color(0xFF2A2A2A),
           backgroundImage: (user.avatar != null && user.avatar!.isNotEmpty)
               ? CachedNetworkImageProvider(user.avatar!)
               : null,
           child: (user.avatar == null || user.avatar!.isEmpty)
-              ? const Icon(Icons.person, size: 46, color: Colors.white)
+              ? const Icon(Icons.person_rounded,
+                  size: 48, color: Colors.white38)
               : null,
         ),
+
         const SizedBox(height: 12),
+
+        // ── Username ──────────────────────────────────────────────────────
         Text(
           '@${user.username}',
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        if (user.name != null && user.name!.isNotEmpty) ...[
-          const SizedBox(height: 4),
+
+        // ── Display name ──────────────────────────────────────────────────
+        if (hasName) ...[
+          const SizedBox(height: 3),
           Text(
             user.name!,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            style: const TextStyle(color: Colors.white54, fontSize: 13),
           ),
         ],
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _Stat(label: 'Videos', value: _fmt(user.postCount)),
-            _vdiv(),
-            _Stat(label: 'Followers', value: _fmt(user.followerCount)),
-            _vdiv(),
-            _Stat(label: 'Likes', value: _fmt(user.likesCount)),
-          ],
-        ),
-        if (user.bio != null && user.bio!.trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
+
+        // ── Bio ───────────────────────────────────────────────────────────
+        if (hasBio) ...[
+          const SizedBox(height: 8),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
               user.bio!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
+
         const SizedBox(height: 16),
-      ],
-    );
-  }
 
-  Widget _vdiv() => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 14),
-    child: SizedBox(
-      height: 24,
-      child: VerticalDivider(width: 1, color: Colors.white24),
-    ),
-  );
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+        // ── Stats ─────────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _Stat(value: _fmt(user.postCount), label: 'Videos'),
+              _StatDivider(),
+              _Stat(value: _fmt(user.followerCount), label: 'Followers'),
+              _StatDivider(),
+              _Stat(value: _fmt(user.followingCount), label: 'Following'),
+              _StatDivider(),
+              _Stat(value: _fmt(user.likesCount), label: 'Likes'),
+            ],
           ),
         ),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+
+        const SizedBox(height: 16),
+
+        // ── Follow button ─────────────────────────────────────────────────
+        if (onFollowTap != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              width: double.infinity,
+              height: 38,
+              child: GestureDetector(
+                onTap: isToggling ? null : onFollowTap,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    color: following
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: following
+                        ? Border.all(
+                            color: Colors.white.withValues(alpha: 0.20))
+                        : null,
+                  ),
+                  child: Center(
+                    child: isToggling
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: following ? Colors.white : Colors.black,
+                            ),
+                          )
+                        : Text(
+                            following ? 'Unfollow' : 'Follow',
+                            style: TextStyle(
+                              color: following ? Colors.white : Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 4),
       ],
     );
   }
 }
 
-class _VideoTile extends StatelessWidget {
-  const _VideoTile({required this.video});
-  final VideoModel video;
+// ─── Stat widgets ─────────────────────────────────────────────────────────────
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label});
+  final String value;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final thumbnail = video.media.thumbnailUrl;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: Stack(
-        fit: StackFit.expand,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          thumbnail != null
-              ? CachedNetworkImage(
-                  imageUrl: thumbnail,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: Colors.grey[900]),
-                  errorWidget: (_, __, ___) =>
-                      Container(color: Colors.grey[900]),
-                )
-              : Container(
-                  color: Colors.grey[900],
-                  child: const Icon(
-                    Icons.play_arrow,
-                    color: Colors.white30,
-                    size: 28,
-                  ),
-                ),
-          Positioned(
-            left: 4,
-            bottom: 4,
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 28, color: Colors.white12);
+}
+
+// ─── Grid tile ────────────────────────────────────────────────────────────────
+
+class _GridTile extends StatelessWidget {
+  const _GridTile({required this.video});
+  final VideoModel video;
+
+  String _fmt(int v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return '$v';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final thumb = video.media.thumbnailUrl;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        thumb != null
+            ? CachedNetworkImage(
+                imageUrl: thumb,
+                fit: BoxFit.cover,
+                placeholder: (_, __) =>
+                    const ColoredBox(color: Color(0xFF111111)),
+                errorWidget: (_, __, ___) =>
+                    const ColoredBox(color: Color(0xFF1A1A1A)),
+              )
+            : const ColoredBox(
+                color: Color(0xFF1A1A1A),
+                child: Icon(Icons.play_arrow_rounded,
+                    color: Colors.white24, size: 28),
+              ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.65),
+                ],
+              ),
+            ),
             child: Row(
               children: [
-                const Icon(Icons.favorite, size: 12, color: Colors.white70),
-                const SizedBox(width: 2),
+                const Icon(Icons.favorite_rounded,
+                    color: Colors.white, size: 11),
+                const SizedBox(width: 3),
                 Text(
-                  '${video.likes}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  _fmt(video.likes),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Empty / loading / error ──────────────────────────────────────────────────
+
+class _EmptyVideos extends StatelessWidget {
+  const _EmptyVideos();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(48),
+      child: Column(
+        children: [
+          Icon(Icons.videocam_off_outlined, color: Colors.white24, size: 48),
+          SizedBox(height: 12),
+          Text(
+            'No videos yet',
+            style: TextStyle(
+                color: Colors.white70,
+                fontSize: 15,
+                fontWeight: FontWeight.w600),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _LoadingView extends StatelessWidget {
+  const _LoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.person_off_outlined,
+                color: Colors.white38, size: 52),
+            const SizedBox(height: 12),
+            Text(message,
+                style: const TextStyle(color: Colors.white70, fontSize: 15)),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              child: const Text('Go back',
+                  style: TextStyle(color: Colors.white54)),
+            ),
+          ],
+        ),
       ),
     );
   }
