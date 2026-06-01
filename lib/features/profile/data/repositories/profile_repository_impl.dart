@@ -117,11 +117,13 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<FeedPage> getUserVideos(String userId, {String? cursor}) async {
-    final params = <String, dynamic>{'id': userId};
-    if (cursor != null) params['cursor'] = cursor;
+    // The path already contains the profile ID.
+    // The optional "id" query param is a numeric pagination cursor, not the user ID.
+    final params = <String, dynamic>{};
+    if (cursor != null) params['id'] = cursor;
     final response = await _apiClient.get(
       'api/v1/feed/account/$userId/cursor',
-      queryParameters: params,
+      queryParameters: params.isEmpty ? null : params,
     );
     return _parsePage(response.data);
   }

@@ -46,6 +46,9 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
   late final AnimationController _heartAnim;
   bool _showHeartBurst = false;
 
+  // Route awareness — pause when another screen is pushed on top
+  bool _routeIsActive = true;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +62,20 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // isCurrent is false when another route is pushed on top of this one.
+    final routeActive = ModalRoute.of(context)?.isCurrent ?? true;
+    if (_routeIsActive == routeActive) return;
+    _routeIsActive = routeActive;
+    if (!routeActive) {
+      _pause();
+    } else if (widget.isActive && _initialized) {
+      _play();
+    }
+  }
+
+  @override
   void didUpdateWidget(VideoPlayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.video.id != widget.video.id) {
@@ -69,7 +86,11 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
       _initVideo();
     }
     if (widget.isActive != oldWidget.isActive) {
-      widget.isActive ? _play() : _pause();
+      if (widget.isActive && _routeIsActive) {
+        _play();
+      } else {
+        _pause();
+      }
     }
   }
 
@@ -113,7 +134,7 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
         _initialized = true;
         _errorMessage = null;
       });
-      if (widget.isActive) _play();
+      if (widget.isActive && _routeIsActive) _play();
     } catch (e) {
       if (mounted) setState(() => _errorMessage = 'Failed to load video');
     }
