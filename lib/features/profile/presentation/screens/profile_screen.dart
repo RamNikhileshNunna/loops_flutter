@@ -119,24 +119,26 @@ class _ProfileHeaderContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasName = user.name != null && user.name!.trim().isNotEmpty;
+    final hasBio = user.bio != null && user.bio!.trim().isNotEmpty;
+
     return Column(
       children: [
         // ── Top bar ───────────────────────────────────────────────────────
         SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
-                    user.name?.isNotEmpty == true
-                        ? user.name!
-                        : '@${user.username}',
+                    hasName ? user.name! : user.username,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -147,113 +149,101 @@ class _ProfileHeaderContent extends StatelessWidget {
                     ref.read(myVideosControllerProvider.notifier).refresh();
                     ref.read(myLikedVideosControllerProvider.notifier).refresh();
                   },
-                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                  icon: const Icon(Icons.refresh_rounded,
+                      color: Colors.white54, size: 22),
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const SettingsScreen()),
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
                   ),
-                  icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                  icon: const Icon(Icons.settings_outlined,
+                      color: Colors.white, size: 22),
                 ),
               ],
             ),
           ),
         ),
 
-        // ── Avatar + stats row ────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Avatar
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 44,
-                    backgroundColor: Colors.grey.shade900,
-                    backgroundImage:
-                        user.avatar != null && user.avatar!.isNotEmpty
-                            ? CachedNetworkImageProvider(user.avatar!)
-                            : null,
-                    child: user.avatar == null || user.avatar!.isEmpty
-                        ? const Icon(Icons.person,
-                            size: 44, color: Colors.white54)
-                        : null,
-                  ),
-                ],
-              ),
-              const SizedBox(width: 24),
+        const SizedBox(height: 16),
 
-              // Stats
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _Stat(
-                      value: _fmt(user.postCount),
-                      label: 'Videos',
-                    ),
-                    _Stat(
-                      value: _fmt(user.followingCount),
-                      label: 'Following',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => RelationshipScreen(
-                              userId: user.id, initialTabIndex: 0),
-                        ),
-                      ),
-                    ),
-                    _Stat(
-                      value: _fmt(user.followerCount),
-                      label: 'Followers',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => RelationshipScreen(
-                              userId: user.id, initialTabIndex: 1),
-                        ),
-                      ),
-                    ),
-                    _Stat(
-                      value: _fmt(user.likesCount),
-                      label: 'Likes',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // ── Name + bio ────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '@${user.username}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              if (user.bio != null && user.bio!.trim().isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  user.bio!,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
+        // ── Avatar (centered) ─────────────────────────────────────────────
+        CircleAvatar(
+          radius: 48,
+          backgroundColor: const Color(0xFF2A2A2A),
+          backgroundImage: user.avatar != null && user.avatar!.isNotEmpty
+              ? CachedNetworkImageProvider(user.avatar!)
+              : null,
+          child: user.avatar == null || user.avatar!.isEmpty
+              ? const Icon(Icons.person_rounded,
+                  size: 48, color: Colors.white38)
+              : null,
         ),
 
         const SizedBox(height: 12),
+
+        // ── Username ──────────────────────────────────────────────────────
+        Text(
+          '@${user.username}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        // ── Bio ───────────────────────────────────────────────────────────
+        if (hasBio) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              user.bio!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 16),
+
+        // ── Stats row ─────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _Stat(value: _fmt(user.postCount), label: 'Videos'),
+              _StatDivider(),
+              _Stat(
+                value: _fmt(user.followingCount),
+                label: 'Following',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) =>
+                      RelationshipScreen(userId: user.id, initialTabIndex: 0),
+                )),
+              ),
+              _StatDivider(),
+              _Stat(
+                value: _fmt(user.followerCount),
+                label: 'Followers',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) =>
+                      RelationshipScreen(userId: user.id, initialTabIndex: 1),
+                )),
+              ),
+              _StatDivider(),
+              _Stat(value: _fmt(user.likesCount), label: 'Likes'),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
 
         // ── Action buttons ────────────────────────────────────────────────
         Padding(
@@ -261,24 +251,22 @@ class _ProfileHeaderContent extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: _OutlineBtn(
+                child: _ActionButton(
                   label: 'Edit Profile',
+                  icon: Icons.edit_outlined,
+                  filled: false,
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const SettingsScreen()),
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              _OutlineBtn(
-                label: '',
-                icon: Icons.share_outlined,
+              const SizedBox(width: 10),
+              _ActionButton(
+                icon: Icons.ios_share_rounded,
                 onTap: () {
-                  Clipboard.setData(
-                    ClipboardData(
-                      text: 'https://loops.video/@${user.username}',
-                    ),
-                  );
+                  Clipboard.setData(ClipboardData(
+                    text: 'https://loops.video/@${user.username}',
+                  ));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Profile link copied')),
                   );
@@ -288,7 +276,7 @@ class _ProfileHeaderContent extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
       ],
     );
   }
@@ -305,20 +293,29 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Colors.black,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black,
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+      ),
       child: const TabBar(
         labelColor: Colors.white,
-        unselectedLabelColor: Colors.white38,
-        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        unselectedLabelColor: Colors.white30,
+        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
         indicatorColor: Colors.white,
-        indicatorSize: TabBarIndicatorSize.label,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicatorWeight: 1.5,
+        dividerColor: Colors.transparent,
         tabs: [
           Tab(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.grid_on_rounded, size: 18),
+                Icon(Icons.grid_on_rounded, size: 17),
                 SizedBox(width: 6),
                 Text('Videos'),
               ],
@@ -328,7 +325,7 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.favorite_border_rounded, size: 18),
+                Icon(Icons.favorite_border_rounded, size: 17),
                 SizedBox(width: 6),
                 Text('Liked'),
               ],
@@ -515,59 +512,94 @@ class _Stat extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
-          ),
-        ],
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _OutlineBtn extends StatelessWidget {
-  const _OutlineBtn({required this.label, required this.onTap, this.icon});
-  final String label;
+class _StatDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 28,
+      color: Colors.white12,
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    this.label,
+    required this.icon,
+    this.filled = false,
+    required this.onTap,
+  });
+  final String? label;
+  final IconData icon;
+  final bool filled;
   final VoidCallback onTap;
-  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    final hasLabel = label != null && label!.isNotEmpty;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: 38,
+        padding: EdgeInsets.symmetric(
+          horizontal: hasLabel ? 14 : 12,
+        ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white24),
+          color: filled ? Colors.white : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: filled ? null : Border.all(color: Colors.white20),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) Icon(icon, color: Colors.white, size: 16),
-            if (icon != null && label.isNotEmpty) const SizedBox(width: 6),
-            if (label.isNotEmpty)
+            Icon(
+              icon,
+              color: filled ? Colors.black : Colors.white,
+              size: 16,
+            ),
+            if (hasLabel) ...[
+              const SizedBox(width: 7),
               Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
+                label!,
+                style: TextStyle(
+                  color: filled ? Colors.black : Colors.white,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
+            ],
           ],
         ),
       ),
