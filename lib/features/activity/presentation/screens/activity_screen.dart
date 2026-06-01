@@ -1,9 +1,43 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:loops_flutter/core/widgets/skeletons.dart';
 
 import '../controllers/activity_controller.dart';
 import '../../domain/models/notification_model.dart';
+
+// ─── Filter tabs ──────────────────────────────────────────────────────────────
+
+enum _Filter { all, likes, follows, comments }
+
+extension _FilterLabel on _Filter {
+  String get label {
+    switch (this) {
+      case _Filter.all:
+        return 'All';
+      case _Filter.likes:
+        return 'Likes';
+      case _Filter.follows:
+        return 'Follows';
+      case _Filter.comments:
+        return 'Comments';
+    }
+  }
+
+  bool matches(NotificationModel n) {
+    switch (this) {
+      case _Filter.all:
+        return true;
+      case _Filter.likes:
+        return n.type.contains('like');
+      case _Filter.follows:
+        return n.type.contains('follow');
+      case _Filter.comments:
+        return n.type.contains('comment');
+    }
+  }
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 class ActivityScreen extends ConsumerStatefulWidget {
   const ActivityScreen({super.key});
@@ -13,27 +47,27 @@ class ActivityScreen extends ConsumerStatefulWidget {
 }
 
 class _ActivityScreenState extends ConsumerState<ActivityScreen> {
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scroll = ScrollController();
+  _Filter _filter = _Filter.all;
 
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(activityControllerProvider.notifier).refresh();
     });
-    _scrollController.addListener(_onScroll);
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 300) {
       ref.read(activityControllerProvider.notifier).loadMore();
     }
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -41,259 +75,529 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(activityControllerProvider);
 
+    final unreadCount = state.asData?.value
+            .where((n) => !n.isRead)
+            .length ??
+        0;
+
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        title: const Text('Notifications'),
-      ),
-      body: state.when(
-        data: (items) => RefreshIndicator(
-          backgroundColor: Colors.black,
-          color: Colors.white,
-          onRefresh: () =>
-              ref.read(activityControllerProvider.notifier).refresh(),
-          child: items.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No notifications',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                )
-              : _buildGroupedList(items),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Header ──────────────────────────────────────────────────
+            _Header(
+              unreadCount: unreadCount,
+              onRefresh: () =>
+                  ref.read(activityControllerProvider.notifier).refresh(),
+            ),
+
+            // ── Filter chips ─────────────────────────────────────────────
+            _FilterRow(
+              selected: _filter,
+              onSelected: (f) => setState(() => _filter = f),
+            ),
+
+            const SizedBox(height: 4),
+
+            // ── Content ──────────────────────────────────────────────────
+            Expanded(
+              child: state.when(
+                loading: () => _buildSkeletons(),
+                error: (e, _) => _ErrorView(
+                  onRetry: () =>
+                      ref.read(activityControllerProvider.notifier).refresh(),
+                ),
+                data: (items) {
+                  final filtered =
+                      items.where(_filter.matches).toList();
+                  if (filtered.isEmpty) {
+                    return _EmptyView(filter: _filter);
+                  }
+                  return RefreshIndicator(
+                    color: Colors.white,
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    onRefresh: () =>
+                        ref.read(activityControllerProvider.notifier).refresh(),
+                    child: _GroupedList(
+                      items: filtered,
+                      scrollController: _scroll,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
-        error: (err, _) => Center(
-          child: Text(
-            'Error: $err',
-            style: const TextStyle(color: Colors.white70),
-          ),
-        ),
-        loading: () => const ActivitySkeleton(),
       ),
     );
   }
 
-  Widget _buildGroupedList(List<NotificationModel> items) {
-    // Sort newest first
-    final sorted = [...items]
-      ..sort(
-        (a, b) => (b.createdAt ?? DateTime.now()).compareTo(
-          a.createdAt ?? DateTime.now(),
-        ),
-      );
-
-    final now = DateTime.now();
-    final Map<String, List<NotificationModel>> groups = {
-      'Today': [],
-      'Yesterday': [],
-      'Earlier': [],
-    };
-
-    for (final n in sorted) {
-      final dt = n.createdAt ?? now;
-      final local = dt.toLocal();
-      final diffDays = now.difference(local).inDays;
-      if (diffDays == 0) {
-        groups['Today']!.add(n);
-      } else if (diffDays == 1) {
-        groups['Yesterday']!.add(n);
-      } else {
-        groups['Earlier']!.add(n);
-      }
-    }
-
-    final List<Widget> children = [];
-
-    void addSection(String title, List<NotificationModel> list) {
-      if (list.isEmpty) return;
-      children.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      );
-      for (final n in list) {
-        children.add(_NotificationTile(notification: n));
-      }
-    }
-
-    addSection('Today', groups['Today']!);
-    addSection('Yesterday', groups['Yesterday']!);
-    addSection('Earlier', groups['Earlier']!);
-
-    return ListView(controller: _scrollController, children: children);
+  Widget _buildSkeletons() {
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: 8,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, __) => const _NotifSkeleton(),
+    );
   }
 }
 
-class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.notification});
+// ─── Header ───────────────────────────────────────────────────────────────────
 
-  final NotificationModel notification;
+class _Header extends StatelessWidget {
+  const _Header({required this.unreadCount, required this.onRefresh});
+  final int unreadCount;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isLike = notification.type == 'video.like';
-    final isFollow = notification.type == 'new_follower';
-
-    final primaryText = notification.actorName ?? 'Someone';
-
-    String actionText;
-    if (isLike) {
-      actionText = 'liked your video';
-    } else if (isFollow) {
-      actionText = 'started following you';
-    } else {
-      actionText = notification.targetTitle ?? 'sent you a notification';
-    }
-
-    final timeText = _formatTimeAgo(notification.createdAt);
-
-    IconData badgeIcon;
-    Color badgeColor;
-    if (isLike) {
-      badgeIcon = Icons.favorite;
-      badgeColor = Colors.redAccent;
-    } else if (isFollow) {
-      badgeIcon = Icons.person_add;
-      badgeColor = Colors.blueAccent;
-    } else {
-      badgeIcon = Icons.notifications;
-      badgeColor = Colors.grey;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0B1020),
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.grey.shade800,
-                backgroundImage: notification.actorAvatarUrl != null
-                    ? NetworkImage(notification.actorAvatarUrl!)
-                    : null,
-                child: notification.actorAvatarUrl == null
-                    ? Text(
-                        primaryText.isNotEmpty
-                            ? primaryText[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              Positioned(
-                bottom: -1,
-                right: -1,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(badgeIcon, size: 12, color: badgeColor),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: RichText(
-                        text: TextSpan(
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: primaryText,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const TextSpan(text: ' '),
-                            TextSpan(
-                              text: actionText,
-                              style: const TextStyle(color: Colors.white70),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (!notification.isRead) ...[
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.circle,
-                        size: 8,
-                        color: Color(0xFF3B82F6),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  timeText,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white54,
-                  ),
-                ),
-              ],
+          const Text(
+            'Activity',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
           ),
-          if (notification.videoThumbnailUrl != null) ...[
+          if (unreadCount > 0) ...[
             const SizedBox(width: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.network(
-                notification.videoThumbnailUrl!,
-                width: 44,
-                height: 64,
-                fit: BoxFit.cover,
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF2D55),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$unreadCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
+          const Spacer(),
+          IconButton(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white54),
+          ),
         ],
       ),
     );
   }
 }
 
-String _formatTimeAgo(DateTime? dateTime) {
-  if (dateTime == null) return '';
-  final now = DateTime.now();
-  final diff = now.difference(dateTime.toLocal());
+// ─── Filter row ───────────────────────────────────────────────────────────────
 
-  if (diff.inSeconds < 60) return '${diff.inSeconds}s';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-  if (diff.inHours < 24) return '${diff.inHours}h';
-  if (diff.inDays < 7) return '${diff.inDays}d';
-  final weeks = (diff.inDays / 7).floor();
-  if (weeks < 4) return '${weeks}w';
-  final months = (diff.inDays / 30).floor();
-  if (months < 12) return '${months}mo';
-  final years = (diff.inDays / 365).floor();
-  return '${years}y';
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({required this.selected, required this.onSelected});
+  final _Filter selected;
+  final void Function(_Filter) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: _Filter.values.map((f) {
+          final active = f == selected;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => onSelected(f),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: active ? Colors.white : const Color(0xFF1C1C1C),
+                  borderRadius: BorderRadius.circular(18),
+                  border: active
+                      ? null
+                      : Border.all(color: Colors.white12),
+                ),
+                child: Text(
+                  f.label,
+                  style: TextStyle(
+                    color: active ? Colors.black : Colors.white54,
+                    fontSize: 13,
+                    fontWeight:
+                        active ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ─── Grouped list ─────────────────────────────────────────────────────────────
+
+class _GroupedList extends StatelessWidget {
+  const _GroupedList(
+      {required this.items, required this.scrollController});
+  final List<NotificationModel> items;
+  final ScrollController scrollController;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...items]..sort(
+        (a, b) => (b.createdAt ?? DateTime.now())
+            .compareTo(a.createdAt ?? DateTime.now()),
+      );
+
+    final now = DateTime.now();
+    final Map<String, List<NotificationModel>> groups = {
+      'New': [],
+      'Yesterday': [],
+      'This week': [],
+      'Earlier': [],
+    };
+
+    for (final n in sorted) {
+      final dt = (n.createdAt ?? now).toLocal();
+      final diff = now.difference(dt);
+      if (diff.inHours < 24) {
+        groups['New']!.add(n);
+      } else if (diff.inDays < 2) {
+        groups['Yesterday']!.add(n);
+      } else if (diff.inDays < 7) {
+        groups['This week']!.add(n);
+      } else {
+        groups['Earlier']!.add(n);
+      }
+    }
+
+    final children = <Widget>[];
+    for (final entry in groups.entries) {
+      if (entry.value.isEmpty) continue;
+      children.add(_GroupHeader(title: entry.key));
+      for (final n in entry.value) {
+        children.add(_NotifTile(notification: n));
+      }
+    }
+    children.add(const SizedBox(height: 80));
+
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      children: children,
+    );
+  }
+}
+
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 20, bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Notification tile ────────────────────────────────────────────────────────
+
+class _NotifTile extends StatelessWidget {
+  const _NotifTile({required this.notification});
+  final NotificationModel notification;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = notification;
+    final isLike = n.type.contains('like');
+    final isFollow = n.type.contains('follow');
+    final isComment = n.type.contains('comment');
+
+    // Badge
+    final (IconData badgeIcon, Color badgeColor) = isLike
+        ? (Icons.favorite_rounded, const Color(0xFFFF2D55))
+        : isFollow
+            ? (Icons.person_add_rounded, const Color(0xFF3B82F6))
+            : isComment
+                ? (Icons.chat_bubble_rounded, const Color(0xFF10B981))
+                : (Icons.notifications_rounded, Colors.grey);
+
+    // Action text
+    final action = isLike
+        ? 'liked your video'
+        : isFollow
+            ? 'started following you'
+            : isComment
+                ? 'commented on your video'
+                : (n.targetTitle ?? 'sent a notification');
+
+    final actor = n.actorName ?? 'Someone';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        color: n.isRead
+            ? Colors.transparent
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Unread accent bar
+          Container(
+            width: 3,
+            height: 56,
+            decoration: BoxDecoration(
+              color: n.isRead ? Colors.transparent : badgeColor,
+              borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(12)),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Avatar + badge
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.grey.shade900,
+                backgroundImage: n.actorAvatarUrl != null
+                    ? CachedNetworkImageProvider(n.actorAvatarUrl!)
+                    : null,
+                child: n.actorAvatarUrl == null
+                    ? Text(
+                        actor.isNotEmpty ? actor[0].toUpperCase() : '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      )
+                    : null,
+              ),
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: badgeColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 1.5),
+                  ),
+                  child: Icon(badgeIcon, size: 10, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(width: 12),
+
+          // Text
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 13.5),
+                      children: [
+                        TextSpan(
+                          text: actor,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700),
+                        ),
+                        const TextSpan(text: ' '),
+                        TextSpan(
+                          text: action,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _timeAgo(n.createdAt),
+                    style: const TextStyle(
+                        color: Colors.white38, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Video thumbnail
+          if (n.videoThumbnailUrl != null) ...[
+            const SizedBox(width: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: CachedNetworkImage(
+                imageUrl: n.videoThumbnailUrl!,
+                width: 40,
+                height: 58,
+                fit: BoxFit.cover,
+                placeholder: (_, __) =>
+                    Container(width: 40, height: 58, color: Colors.grey[900]),
+                errorWidget: (_, __, ___) =>
+                    Container(width: 40, height: 58, color: Colors.grey[900]),
+              ),
+            ),
+          ],
+
+          const SizedBox(width: 10),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Empty / error / skeleton ─────────────────────────────────────────────────
+
+class _EmptyView extends StatelessWidget {
+  const _EmptyView({required this.filter});
+  final _Filter filter;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAll = filter == _Filter.all;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isAll ? Icons.notifications_none_rounded : Icons.inbox_outlined,
+            color: Colors.white24,
+            size: 64,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            isAll ? 'All caught up!' : 'No ${filter.label.toLowerCase()}',
+            style: const TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isAll
+                ? 'Your notifications will appear here'
+                : 'Nothing to show for this filter',
+            style: const TextStyle(color: Colors.white38, fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.onRetry});
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off_rounded, color: Colors.white38, size: 48),
+          const SizedBox(height: 12),
+          const Text('Could not load notifications',
+              style: TextStyle(color: Colors.white70)),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: onRetry,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white24),
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotifSkeleton extends StatelessWidget {
+  const _NotifSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 13,
+                width: 160,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                height: 11,
+                width: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Time helper ─────────────────────────────────────────────────────────────
+
+String _timeAgo(DateTime? dt) {
+  if (dt == null) return '';
+  final diff = DateTime.now().difference(dt.toLocal());
+  if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  return '${(diff.inDays / 7).floor()}w ago';
 }
