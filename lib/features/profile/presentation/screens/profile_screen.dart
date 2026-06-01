@@ -578,7 +578,7 @@ class _ActionButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: filled ? Colors.white : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
-          border: filled ? null : Border.all(color: Colors.white20),
+          border: filled ? null : Border.all(color: Colors.white.withValues(alpha: 0.20)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
