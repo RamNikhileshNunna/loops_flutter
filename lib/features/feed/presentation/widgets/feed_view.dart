@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../domain/models/video_model.dart';
 import 'video_player_widget.dart';
 
@@ -46,9 +47,45 @@ class _FeedViewState extends State<FeedView> {
     super.dispose();
   }
 
+  // Desktop keyboard paging: arrows / PageUp-Down / j-k move between videos.
+  void _step(int delta) {
+    if (widget.videos.isEmpty) return;
+    final target =
+        (_currentIndex + delta).clamp(0, widget.videos.length - 1);
+    if (target == _currentIndex) return;
+    _pageController.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final k = event.logicalKey;
+    if (k == LogicalKeyboardKey.arrowDown ||
+        k == LogicalKeyboardKey.pageDown ||
+        k == LogicalKeyboardKey.keyJ) {
+      _step(1);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowUp ||
+        k == LogicalKeyboardKey.pageUp ||
+        k == LogicalKeyboardKey.keyK) {
+      _step(-1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return PageView.builder(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: PageView.builder(
       controller: _pageController,
       scrollDirection: Axis.vertical,
       // Build the adjacent pages ahead of time so the next video's controller
@@ -68,6 +105,7 @@ class _FeedViewState extends State<FeedView> {
         key: ValueKey(widget.videos[index].id),
         video: widget.videos[index],
         isActive: index == _currentIndex,
+      ),
       ),
     );
   }

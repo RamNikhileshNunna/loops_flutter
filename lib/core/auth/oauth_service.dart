@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
+import 'package:loops_flutter/core/auth/browser_auth.dart';
 import 'package:loops_flutter/core/storage/storage_service.dart';
 import 'package:loops_flutter/features/profile/domain/models/user_model.dart';
 import 'dart:convert';
@@ -12,23 +12,23 @@ class OAuthService {
   static const String _appName = 'Loops for Flutter';
   static const String _defaultScopes =
       'user:read user:write video:create video:read';
-  static const String _redirectScheme = 'com.example.loopsflutter';
-  static const String _redirectHost = 'login-callback';
-  static const String _redirectUri = '$_redirectScheme://$_redirectHost';
 
   OAuthService(this._dio, this._storage);
 
   Future<bool> login(String server, {String? scopes}) async {
+    BrowserAuthSession? session;
     try {
-      // 1. Preflight check (simplified)
-      // loops-expo does /api/v1/config check. We can assume valid for now or add check.
-
       final baseUrl = 'https://$server';
+
+      // 1. Start the loopback callback server first so its address can be
+      //    registered as the redirect URI and embedded in the authorize URL.
+      session = await startBrowserAuth();
+      final redirectUri = session.redirectUri;
 
       // 2. Register App
       final app = await _registerApp(
         baseUrl,
-        _redirectUri,
+        redirectUri,
         scopes ?? _defaultScopes,
       );
       if (app == null) return false;
@@ -38,7 +38,7 @@ class OAuthService {
       // 3. Authorize
       // Manually construct URL to ensure scopes use '+' and matching loops-expo format exactly
       final scopeParam = (scopes ?? _defaultScopes).split(' ').join('+');
-      final encodedRedirect = Uri.encodeComponent(_redirectUri);
+      final encodedRedirect = Uri.encodeComponent(redirectUri);
       final clientId = app['client_id'];
 
       final authUrl =
@@ -46,10 +46,8 @@ class OAuthService {
 
       AppLogger.log('Opening Auth URL: $authUrl');
 
-      final result = await FlutterWebAuth2.authenticate(
-        url: authUrl,
-        callbackUrlScheme: _redirectScheme,
-      );
+      final result = await session.waitForRedirect(authUrl);
+      if (result == null) return false;
 
       final code = Uri.parse(result).queryParameters['code'];
       if (code == null) return false;
@@ -59,7 +57,7 @@ class OAuthService {
         baseUrl,
         app['client_id'],
         app['client_secret'],
-        _redirectUri,
+        redirectUri,
         code,
       );
 
@@ -84,20 +82,23 @@ class OAuthService {
     } catch (e, stack) {
       AppLogger.error('OAuth Logic Error', e, stack);
       return false;
+    } finally {
+      await session?.close();
     }
   }
 
   Future<bool> registerWithWebBrowser(String server) async {
+    BrowserAuthSession? session;
     try {
       final baseUrl = 'https://$server';
+      session = await startBrowserAuth();
+      final redirectUri = session.redirectUri;
       // loops_expo: registerUrl = `${url}/auth/app/register?mobile=true&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
       final registerUrl =
-          '$baseUrl/auth/app/register?mobile=true&redirect_uri=${Uri.encodeComponent(_redirectUri)}';
+          '$baseUrl/auth/app/register?mobile=true&redirect_uri=${Uri.encodeComponent(redirectUri)}';
 
-      final result = await FlutterWebAuth2.authenticate(
-        url: registerUrl,
-        callbackUrlScheme: _redirectScheme,
-      );
+      final result = await session.waitForRedirect(registerUrl);
+      if (result == null) return false;
 
       // Handle callback: url?token=...&user=...
       final uri = Uri.parse(result);
@@ -123,6 +124,8 @@ class OAuthService {
     } catch (e, stack) {
       AppLogger.error('Registration Error', e, stack);
       return false;
+    } finally {
+      await session?.close();
     }
   }
 

@@ -37,8 +37,8 @@ class ExploreGrid extends ConsumerWidget {
 
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          sliver: SliverMasonryGrid.count(
-            crossAxisCount: 2,
+          sliver: SliverMasonryGrid.extent(
+            maxCrossAxisExtent: 220,
             mainAxisSpacing: 4,
             crossAxisSpacing: 4,
             childCount: videos.length,

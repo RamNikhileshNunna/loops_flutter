@@ -4,11 +4,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:video_player/video_player.dart';
 
 import '../../data/repositories/video_actions_repository_impl.dart';
 import '../../domain/models/video_model.dart';
 import 'comments_sheet.dart';
+import 'platform_video.dart';
 import 'likes_sheet.dart';
 import 'package:loops_flutter/core/storage/storage_service.dart';
 import 'package:loops_flutter/features/profile/presentation/screens/user_profile_screen.dart';
@@ -29,7 +29,7 @@ class VideoPlayerWidget extends ConsumerStatefulWidget {
 
 class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  VideoPlayerController? _controller;
+  PlatformVideo? _player;
   bool _initialized = false;
   String? _errorMessage;
 
@@ -90,8 +90,8 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
   void didUpdateWidget(VideoPlayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.video.id != widget.video.id) {
-      _controller?.dispose();
-      _controller = null;
+      _player?.dispose();
+      _player = null;
       _initialized = false;
       _errorMessage = null;
       _initVideo();
@@ -138,21 +138,16 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
     }
 
     try {
-      // Use formatHint: hls when the URL looks like an HLS stream so ExoPlayer
-      // always picks HlsMediaSource instead of ProgressiveMediaPeriod.
-      // Without this hint, ExoPlayer falls back to progressive for URLs that
-      // don't have a .m3u8 extension even though the content IS an HLS manifest,
-      // causing UnrecognizedInputFormatException (dataType=1 = DATA_TYPE_MANIFEST).
-      final ctrl = _isHlsUrl(url)
-          // ignore: deprecated_member_use — networkUrl has no formatHint
-          ? VideoPlayerController.network(url, formatHint: VideoFormat.hls)
-          : VideoPlayerController.networkUrl(Uri.parse(url));
-      await ctrl.initialize();
+      // PlatformVideo picks the right backend: video_player on mobile/web,
+      // media_kit (libmpv) on desktop. The hls hint matters only for the
+      // ExoPlayer path — see platform_video.dart.
+      final player = PlatformVideo(url, hls: _isHlsUrl(url));
+      await player.initialize();
       if (!mounted) {
-        ctrl.dispose();
+        player.dispose();
         return;
       }
-      _controller = ctrl;
+      _player = player;
       setState(() {
         _initialized = true;
         _errorMessage = null;
@@ -164,15 +159,15 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
   }
 
   void _play() {
-    _controller?.play();
-    _controller?.setLooping(true);
+    _player?.play();
+    _player?.setLooping(true);
   }
 
-  void _pause() => _controller?.pause();
+  void _pause() => _player?.pause();
 
   void _onTap() {
-    if (_controller == null) return;
-    if (_controller!.value.isPlaying) {
+    if (_player == null) return;
+    if (_player!.isPlaying) {
       _pause();
       _showIcon(Icons.pause_rounded);
     } else {
@@ -248,7 +243,7 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
     WidgetsBinding.instance.removeObserver(this);
     _iconTimer?.cancel();
     _heartAnim.dispose();
-    _controller?.dispose();
+    _player?.dispose();
     super.dispose();
   }
 
@@ -301,7 +296,7 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _controller?.value.isPlaying ?? false
+                    _player?.isPlaying ?? false
                         ? Icons.play_arrow_rounded
                         : Icons.pause_rounded,
                     color: Colors.white,
@@ -382,8 +377,8 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
                   _errorMessage = null;
                   _initialized = false;
                 });
-                _controller?.dispose();
-                _controller = null;
+                _player?.dispose();
+                _player = null;
                 _initVideo();
               },
               child: const Text('Retry', style: TextStyle(color: Colors.white)),
@@ -393,7 +388,7 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
       );
     }
 
-    if (!_initialized || _controller == null) {
+    if (!_initialized || _player == null) {
       // Show thumbnail while loading
       final thumb = widget.video.media.thumbnailUrl;
       return Stack(
@@ -415,17 +410,8 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
       );
     }
 
-    // Full-screen cover video
-    return SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: _controller!.value.size.width,
-          height: _controller!.value.size.height,
-          child: VideoPlayer(_controller!),
-        ),
-      ),
-    );
+    // Full-screen cover video (backend-specific surface, already cover-fitted)
+    return _player!.buildSurface();
   }
 
   Widget _buildInfoOverlay() {
@@ -584,15 +570,16 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
   }
 
   Widget _buildProgressBar() {
-    if (!_initialized || _controller == null) return const SizedBox.shrink();
+    final player = _player;
+    if (!_initialized || player == null) return const SizedBox.shrink();
     // The progress bar ticks many times per second; RepaintBoundary keeps
     // those repaints from invalidating the rest of the overlay.
     return RepaintBoundary(
-      child: ValueListenableBuilder(
-        valueListenable: _controller!,
-        builder: (_, VideoPlayerValue v, __) {
-          final total = v.duration.inMilliseconds;
-          final pos = v.position.inMilliseconds;
+      child: ListenableBuilder(
+        listenable: player.listenable,
+        builder: (_, __) {
+          final total = player.duration.inMilliseconds;
+          final pos = player.position.inMilliseconds;
           final progress = total > 0 ? (pos / total).clamp(0.0, 1.0) : 0.0;
           return LinearProgressIndicator(
             value: progress,

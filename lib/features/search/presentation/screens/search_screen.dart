@@ -194,8 +194,8 @@ class _VideoResults extends StatelessWidget {
     }
     return GridView.builder(
       padding: const EdgeInsets.all(4),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 150,
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
         childAspectRatio: 9 / 16,

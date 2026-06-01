@@ -397,8 +397,8 @@ class _VideoGrid extends ConsumerWidget {
 
     return GridView.builder(
       padding: EdgeInsets.zero,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 150,
         crossAxisSpacing: 1.5,
         mainAxisSpacing: 1.5,
         childAspectRatio: 9 / 16,

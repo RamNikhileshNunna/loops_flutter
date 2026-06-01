@@ -227,8 +227,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     childCount: _videos.length,
                   ),
                   gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
+                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 150,
                     crossAxisSpacing: 1.5,
                     mainAxisSpacing: 1.5,
                     childAspectRatio: 9 / 16,

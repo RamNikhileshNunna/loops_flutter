@@ -4,7 +4,10 @@ import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/responsive/responsive.dart';
+import 'features/explore/presentation/widgets/desktop_sidebar.dart';
 import 'core/storage/storage_service.dart';
 import 'core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
@@ -183,14 +186,243 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         setState(() => _tabHistory.removeLast());
         _navigateTo(_tabHistory.last);
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        extendBody: true, // video bleeds behind the nav bar
-        body: widget.child,
-        bottomNavigationBar: _BottomNav(
-          activeTab: _activeTab,
-          onTabTap: _navigateTo,
-          onUploadTap: _startUpload,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final desktop = constraints.maxWidth >= Breakpoints.medium;
+          return desktop ? _buildDesktop(constraints) : _buildMobile();
+        },
+      ),
+    );
+  }
+
+  // Phone / narrow window: full-bleed body + bottom nav.
+  Widget _buildMobile() {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBody: true, // video bleeds behind the nav bar
+      body: widget.child,
+      bottomNavigationBar: _BottomNav(
+        activeTab: _activeTab,
+        onTabTap: _navigateTo,
+        onUploadTap: _startUpload,
+      ),
+    );
+  }
+
+  // Desktop: left rail · centered content · optional right sidebar.
+  Widget _buildDesktop(BoxConstraints constraints) {
+    final wide = constraints.maxWidth >= Breakpoints.expanded;
+    // The feed stays phone-shaped in a centered column; grids/lists fill the
+    // available area instead.
+    final Widget content = _activeTab == 0
+        ? Center(
+            child: ConstrainedBox(
+              constraints:
+                  const BoxConstraints(maxWidth: Breakpoints.feedColumn),
+              child: ClipRect(child: widget.child),
+            ),
+          )
+        : widget.child;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Row(
+        children: [
+          _SideNav(
+            activeTab: _activeTab,
+            onTabTap: _navigateTo,
+            onUploadTap: _startUpload,
+            expanded: wide,
+          ),
+          const VerticalDivider(width: 1, color: Colors.white10),
+          Expanded(child: content),
+          if (wide) ...[
+            const VerticalDivider(width: 1, color: Colors.white10),
+            const DesktopSidebar(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Desktop side navigation rail ─────────────────────────────────────────────
+
+class _SideNav extends StatelessWidget {
+  const _SideNav({
+    required this.activeTab,
+    required this.onTabTap,
+    required this.onUploadTap,
+    required this.expanded,
+  });
+
+  final int activeTab;
+  final void Function(int) onTabTap;
+  final VoidCallback onUploadTap;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: expanded ? 220 : 76,
+      color: Colors.black,
+      child: SafeArea(
+        right: false,
+        child: Column(
+          crossAxisAlignment:
+              expanded ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: expanded ? 22 : 0, vertical: 22),
+              child: expanded
+                  ? const Text(
+                      'Loops',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    )
+                  : const Icon(Icons.all_inclusive_rounded,
+                      color: Colors.white, size: 28),
+            ),
+            _SideNavItem(
+              icon: Icons.home_outlined,
+              activeIcon: Icons.home_rounded,
+              label: 'Home',
+              active: activeTab == 0,
+              expanded: expanded,
+              onTap: () => onTabTap(0),
+            ),
+            _SideNavItem(
+              icon: Icons.explore_outlined,
+              activeIcon: Icons.explore_rounded,
+              label: 'Explore',
+              active: activeTab == 1,
+              expanded: expanded,
+              onTap: () => onTabTap(1),
+            ),
+            _SideNavItem(
+              icon: Icons.notifications_none_rounded,
+              activeIcon: Icons.notifications_rounded,
+              label: 'Activity',
+              active: activeTab == 3,
+              expanded: expanded,
+              onTap: () => onTabTap(3),
+            ),
+            _SideNavItem(
+              icon: Icons.person_outline_rounded,
+              activeIcon: Icons.person_rounded,
+              label: 'Profile',
+              active: activeTab == 4,
+              expanded: expanded,
+              onTap: () => onTabTap(4),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: expanded ? 16 : 14),
+              child: _UploadButton(expanded: expanded, onTap: onUploadTap),
+            ),
+            const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SideNavItem extends StatelessWidget {
+  const _SideNavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.active,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool active;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? Colors.white : Colors.white60;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 3),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: expanded ? 12 : 0, vertical: 12),
+            child: expanded
+                ? Row(
+                    children: [
+                      Icon(active ? activeIcon : icon, color: color, size: 26),
+                      const SizedBox(width: 16),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 16,
+                          fontWeight:
+                              active ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  )
+                : Center(
+                    child:
+                        Icon(active ? activeIcon : icon, color: color, size: 28),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UploadButton extends StatelessWidget {
+  const _UploadButton({required this.expanded, required this.onTap});
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          height: 48,
+          alignment: Alignment.center,
+          child: expanded
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.add_rounded, color: Colors.black, size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      'Upload',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                )
+              : const Icon(Icons.add_rounded, color: Colors.black, size: 26),
         ),
       ),
     );
@@ -394,6 +626,10 @@ class _UploadProgressDialog extends StatelessWidget {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialise the desktop video backend (libmpv via media_kit). No-op-safe on
+  // mobile/web, where playback falls back to video_player.
+  MediaKit.ensureInitialized();
 
   // Replace the default red error screen with a quiet, on-brand placeholder so
   // an isolated render error on one device never shows a scary crash overlay.

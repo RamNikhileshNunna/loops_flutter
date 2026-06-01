@@ -3,10 +3,11 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  desktop_webview_window
   file_selector_linux
+  media_kit_libs_linux
+  media_kit_video
   url_launcher_linux
-  window_to_front
+  volume_controller
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

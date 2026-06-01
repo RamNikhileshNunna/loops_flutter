@@ -41,10 +41,22 @@ endif()
 # of modifying this function.
 function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_14)
-  target_compile_options(${TARGET} PRIVATE -Wall -Werror)
+  # NOTE: -Werror intentionally dropped. This project builds with the system
+  # g++ (clang isn't installed); g++ emits a few -Wsign-compare warnings in
+  # upstream plugin sources (e.g. media_kit_video's texture_*.cc) that clang
+  # does not, and -Werror would turn those into hard build failures.
+  target_compile_options(${TARGET} PRIVATE -Wall)
   target_compile_options(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:-O3>")
   target_compile_definitions(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:NDEBUG>")
 endfunction()
+
+# media_kit bundles mimalloc and builds it via an ExternalProject that uses the
+# system gcc. Under the Flutter *snap*, that sub-build mixes the snap's old
+# linker/glibc with the system gcc-13 LTO plugin and fails (GLIBC_2.33 not
+# found). mimalloc is only an allocator optimisation, so disable the static
+# bundle and fall back to the standard allocator. Must be set before the
+# plugins are added below.
+set(MIMALLOC_USE_STATIC_LIBS OFF CACHE BOOL "Disable mimalloc static bundle (snap toolchain mismatch)" FORCE)
 
 # Flutter library and tool build rules.
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")

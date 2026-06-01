@@ -153,8 +153,8 @@ class ProfileSkeleton extends StatelessWidget {
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.all(2),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 150,
               crossAxisSpacing: 2,
               mainAxisSpacing: 2,
               childAspectRatio: 0.8,
@@ -218,8 +218,8 @@ class ExploreSkeleton extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 220,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
               childAspectRatio: 0.7,

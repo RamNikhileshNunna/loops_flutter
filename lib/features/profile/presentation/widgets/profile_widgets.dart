@@ -149,8 +149,8 @@ class ProfileVideoGrid extends StatelessWidget {
     // We show a simple placeholder tile and open the video on tap later if needed.
     return GridView.builder(
       padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 150,
         crossAxisSpacing: 6,
         mainAxisSpacing: 6,
         childAspectRatio: 9 / 16,
