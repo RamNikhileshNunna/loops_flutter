@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:loops_flutter/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:loops_flutter/features/profile/domain/models/user_model.dart';
 import 'package:loops_flutter/features/profile/presentation/controllers/relationship_controller.dart';
+import 'package:loops_flutter/features/profile/presentation/screens/user_profile_screen.dart';
 
 class RelationshipScreen extends ConsumerWidget {
   final String userId;
@@ -92,64 +94,96 @@ class _UserList extends ConsumerWidget {
   }
 }
 
-class _UserTile extends StatelessWidget {
+class _UserTile extends ConsumerStatefulWidget {
   final UserModel user;
-
   const _UserTile({required this.user});
 
   @override
+  ConsumerState<_UserTile> createState() => _UserTileState();
+}
+
+class _UserTileState extends ConsumerState<_UserTile> {
+  bool _isFollowing = false;
+  bool _busy = false;
+
+  Future<void> _toggle() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final repo = ref.read(profileRepositoryProvider);
+    final wasFollowing = _isFollowing;
+    setState(() => _isFollowing = !wasFollowing);
+    final success = wasFollowing
+        ? await repo.unfollowUser(widget.user.id)
+        : await repo.followUser(widget.user.id);
+    if (!success && mounted) setState(() => _isFollowing = wasFollowing);
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.grey[800],
-          backgroundImage: user.avatar != null
-              ? CachedNetworkImageProvider(user.avatar!)
-              : null,
-          child: user.avatar == null
-              ? const Icon(Icons.person, color: Colors.white)
-              : null,
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(userId: widget.user.id),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                user.username,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (user.bio != null)
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: Colors.grey[800],
+            backgroundImage: widget.user.avatar != null
+                ? CachedNetworkImageProvider(widget.user.avatar!)
+                : null,
+            child: widget.user.avatar == null
+                ? const Icon(Icons.person, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  user.bio!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  widget.user.username,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-            ],
-          ),
-        ),
-        if (!user.isOwner)
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement follow/unfollow logic from list
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              minimumSize: const Size(80, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
+                if (widget.user.bio != null)
+                  Text(
+                    widget.user.bio!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+              ],
             ),
-            child: const Text('Follow'),
           ),
-      ],
+          if (!widget.user.isOwner)
+            ElevatedButton(
+              onPressed: _busy ? null : _toggle,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isFollowing ? Colors.transparent : Colors.white,
+                foregroundColor: _isFollowing ? Colors.white : Colors.black,
+                side: const BorderSide(color: Colors.white30),
+                minimumSize: const Size(80, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: _busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(_isFollowing ? 'Unfollow' : 'Follow'),
+            ),
+        ],
+      ),
     );
   }
 }

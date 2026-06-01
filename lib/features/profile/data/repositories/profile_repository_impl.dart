@@ -98,4 +98,55 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return [];
     }
   }
+
+  @override
+  Future<UserModel?> getUserProfile(String userId) async {
+    try {
+      final response = await _apiClient.get('api/v1/account/info/$userId');
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data['data'] ?? response.data;
+        if (data is Map<String, dynamic>) {
+          return UserModel.fromJson(data);
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<FeedPage> getUserVideos(String userId, {String? cursor}) async {
+    final response = await _apiClient.get(
+      'api/v1/feed/account/$userId',
+      queryParameters: cursor != null ? {'cursor': cursor} : null,
+    );
+    return _parsePage(response.data);
+  }
+
+  @override
+  Future<bool> followUser(String userId) async {
+    try {
+      await _apiClient.ensureCsrfCookie();
+      final response = await _apiClient.post('api/v1/account/follow/$userId');
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> unfollowUser(String userId) async {
+    try {
+      await _apiClient.ensureCsrfCookie();
+      final response = await _apiClient.post('api/v1/account/unfollow/$userId');
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e) {
+      return false;
+    }
+  }
 }

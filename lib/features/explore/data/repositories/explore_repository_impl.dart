@@ -69,8 +69,47 @@ class ExploreRepositoryImpl implements ExploreRepository {
 
   @override
   Future<void> followUser(String userId) async {
-    // Guessed endpoint: api/v1/account/follow/{id}
     await _apiClient.post('api/v1/account/follow/$userId');
+  }
+
+  @override
+  Future<void> unfollowUser(String userId) async {
+    await _apiClient.post('api/v1/account/unfollow/$userId');
+  }
+
+  @override
+  Future<List<UserModel>> searchUsers(String query) async {
+    try {
+      final response = await _apiClient.get(
+        'api/v1/search/users',
+        queryParameters: {'query': query},
+      );
+      final data = response.data['data'];
+      if (data is List) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map((e) => UserModel.fromJson(e))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<FeedPage> searchVideos(String query, {String? cursor}) async {
+    try {
+      final params = <String, dynamic>{'query': query};
+      if (cursor != null) params['cursor'] = cursor;
+      final response = await _apiClient.get(
+        'api/v1/search/videos',
+        queryParameters: params,
+      );
+      return _parsePage(response.data);
+    } catch (e) {
+      return const FeedPage(videos: [], nextCursor: null);
+    }
   }
 
   FeedPage _parsePage(dynamic data) {

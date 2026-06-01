@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../feed/domain/models/video_model.dart';
-import '../../../feed/presentation/controllers/feed_controller.dart';
 import '../../../feed/presentation/widgets/video_player_widget.dart';
 
 class ExploreViewerScreen extends ConsumerStatefulWidget {
@@ -39,10 +38,7 @@ class _ExploreViewerScreenState extends ConsumerState<ExploreViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final feedState = ref.watch(feedControllerProvider);
-    final videos = feedState.asData?.value.isNotEmpty == true
-        ? feedState.asData!.value
-        : widget.videos;
+    final videos = widget.videos;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -54,10 +50,6 @@ class _ExploreViewerScreenState extends ConsumerState<ExploreViewerScreen> {
             itemCount: videos.length,
             onPageChanged: (index) {
               setState(() => _currentIndex = index);
-
-              if (index >= videos.length - 3) {
-                ref.read(feedControllerProvider.notifier).loadMore();
-              }
             },
             itemBuilder: (context, index) {
               return VideoPlayerWidget(

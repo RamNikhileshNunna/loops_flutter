@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
@@ -7,6 +8,7 @@ import '../../data/repositories/video_actions_repository_impl.dart';
 import 'likes_sheet.dart';
 import 'comments_sheet.dart';
 import 'package:loops_flutter/core/storage/storage_service.dart';
+import 'package:loops_flutter/features/profile/presentation/screens/user_profile_screen.dart';
 
 class VideoPlayerWidget extends ConsumerStatefulWidget {
   final VideoModel video;
@@ -190,6 +192,24 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget> {
     );
   }
 
+  void _shareVideo(BuildContext context) {
+    final storage = ref.read(storageServiceProvider);
+    final instance = storage.getInstance() ?? 'loops.video';
+    final url = 'https://$instance/v/${widget.video.id}';
+    Clipboard.setData(ClipboardData(text: url));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Link copied to clipboard')));
+  }
+
+  void _openUserProfile(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: widget.video.account.id),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _controller?.dispose();
@@ -259,12 +279,15 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '@${widget.video.account.username}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              GestureDetector(
+                onTap: () => _openUserProfile(context),
+                child: Text(
+                  '@${widget.video.account.username}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -303,7 +326,7 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget> {
               _ActionButton(
                 icon: Icons.share,
                 label: '${widget.video.shares}',
-                onTap: () {},
+                onTap: () => _shareVideo(context),
               ),
             ],
           ),

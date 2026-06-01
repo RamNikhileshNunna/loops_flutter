@@ -6,4 +6,8 @@ abstract class ProfileRepository {
   Future<FeedPage> getMyLikedVideos({String? cursor});
   Future<List<UserModel>> getFollowers(String userId);
   Future<List<UserModel>> getFollowing(String userId);
+  Future<UserModel?> getUserProfile(String userId);
+  Future<FeedPage> getUserVideos(String userId, {String? cursor});
+  Future<bool> followUser(String userId);
+  Future<bool> unfollowUser(String userId);
 }

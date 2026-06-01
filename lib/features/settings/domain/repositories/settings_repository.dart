@@ -13,4 +13,16 @@ abstract class SettingsRepository {
     required bool analyticsTracking,
     required bool researchDataSharing,
   });
+
+  Future<bool> updateEmail({required String email});
+
+  Future<bool> updateAvatar(String filePath);
+
+  Future<Map<String, dynamic>?> getPrivacySettings();
+
+  Future<bool> updatePrivacySettings(Map<String, dynamic> settings);
+
+  Future<bool> disableAccount();
+
+  Future<bool> deleteAccount();
 }

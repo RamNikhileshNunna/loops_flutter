@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:loops_flutter/core/network/api_client.dart';
 import '../../domain/repositories/settings_repository.dart';
 
@@ -62,5 +64,69 @@ class SettingsRepositoryImpl implements SettingsRepository {
         'research_data_sharing': researchDataSharing,
       },
     );
+  }
+
+  @override
+  Future<bool> updateEmail({required String email}) async {
+    return _postWithCsrf(
+      'api/v1/account/settings/update-email',
+      data: {'email': email},
+    );
+  }
+
+  @override
+  Future<bool> updateAvatar(String filePath) async {
+    try {
+      await _apiClient.ensureCsrfCookie();
+      final ext = filePath.toLowerCase().split('.').last;
+      final subtype = ext == 'png'
+          ? 'png'
+          : ext == 'gif'
+          ? 'gif'
+          : 'jpeg';
+      final multipart = await MultipartFile.fromFile(
+        filePath,
+        filename: 'avatar.$ext',
+        contentType: MediaType('image', subtype),
+      );
+      final form = FormData.fromMap({'avatar': multipart});
+      final response = await _apiClient.post(
+        'api/v1/account/settings/update-avatar',
+        data: form,
+      );
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getPrivacySettings() async {
+    try {
+      final response = await _apiClient.get('api/v1/account/settings/privacy');
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+        return response.data as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> updatePrivacySettings(Map<String, dynamic> settings) async {
+    return _postWithCsrf('api/v1/account/settings/privacy', data: settings);
+  }
+
+  @override
+  Future<bool> disableAccount() async {
+    return _postWithCsrf('api/v1/account/disable');
+  }
+
+  @override
+  Future<bool> deleteAccount() async {
+    return _postWithCsrf('api/v1/account/delete');
   }
 }

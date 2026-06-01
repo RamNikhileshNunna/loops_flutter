@@ -14,6 +14,7 @@ import 'features/activity/presentation/screens/activity_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/feed/data/repositories/video_upload_repository_impl.dart';
+import 'features/profile/presentation/screens/user_profile_screen.dart';
 import 'package:dio/dio.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -312,6 +313,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/user/:id',
+        builder: (context, state) =>
+            UserProfileScreen(userId: state.pathParameters['id']!),
+      ),
     ],
   );
 });

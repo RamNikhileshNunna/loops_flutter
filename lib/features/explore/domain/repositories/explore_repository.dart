@@ -7,4 +7,7 @@ abstract class ExploreRepository {
   Future<List<TagModel>> getTrendingTags();
   Future<FeedPage> getTagFeed(String tag, {String? cursor});
   Future<void> followUser(String userId);
+  Future<void> unfollowUser(String userId);
+  Future<List<UserModel>> searchUsers(String query);
+  Future<FeedPage> searchVideos(String query, {String? cursor});
 }

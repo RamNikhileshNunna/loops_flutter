@@ -5,6 +5,7 @@ import 'package:loops_flutter/features/explore/presentation/widgets/explore_grid
 import 'package:loops_flutter/features/explore/presentation/widgets/suggested_accounts_list.dart';
 import 'package:loops_flutter/features/explore/presentation/widgets/trending_tags_filter.dart';
 import 'package:loops_flutter/core/widgets/skeletons.dart';
+import 'package:loops_flutter/features/search/presentation/screens/search_screen.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key});
@@ -89,7 +90,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   IconButton(
                     icon: const Icon(Icons.search, color: Colors.white),
                     onPressed: () {
-                      // TODO: Navigate to search screen
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SearchScreen(),
+                        ),
+                      );
                     },
                   ),
                 ],

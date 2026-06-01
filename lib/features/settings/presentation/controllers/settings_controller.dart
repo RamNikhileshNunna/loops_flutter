@@ -67,4 +67,68 @@ class SettingsController extends AsyncNotifier<void> {
       return false;
     }
   }
+
+  Future<bool> updateEmail({required String email}) async {
+    state = const AsyncValue.loading();
+    try {
+      final success = await _repository.updateEmail(email: email);
+      state = const AsyncValue.data(null);
+      return success;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> updateAvatar(String filePath) async {
+    state = const AsyncValue.loading();
+    try {
+      final success = await _repository.updateAvatar(filePath);
+      state = const AsyncValue.data(null);
+      return success;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getPrivacySettings() async {
+    return _repository.getPrivacySettings();
+  }
+
+  Future<bool> updatePrivacySettings(Map<String, dynamic> settings) async {
+    state = const AsyncValue.loading();
+    try {
+      final success = await _repository.updatePrivacySettings(settings);
+      state = const AsyncValue.data(null);
+      return success;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> disableAccount() async {
+    state = const AsyncValue.loading();
+    try {
+      final success = await _repository.disableAccount();
+      state = const AsyncValue.data(null);
+      return success;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> deleteAccount() async {
+    state = const AsyncValue.loading();
+    try {
+      final success = await _repository.deleteAccount();
+      state = const AsyncValue.data(null);
+      return success;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
 }
