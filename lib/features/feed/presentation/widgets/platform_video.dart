@@ -129,7 +129,16 @@ class _VideoPlayerVideo implements PlatformVideo {
 class _MediaKitVideo extends ChangeNotifier implements PlatformVideo {
   _MediaKitVideo(this.url) {
     _player = mk.Player();
-    _videoController = mkv.VideoController(_player);
+    // Force the software rendering texture path. media_kit's default H/W
+    // (OpenGL) path produces a solid blue/garbled frame on many Linux
+    // GPUs/drivers and virtual displays (audio plays, no picture). The
+    // software path copies pixels reliably at a small CPU cost.
+    _videoController = mkv.VideoController(
+      _player,
+      configuration: const mkv.VideoControllerConfiguration(
+        enableHardwareAcceleration: false,
+      ),
+    );
   }
 
   final String url;
