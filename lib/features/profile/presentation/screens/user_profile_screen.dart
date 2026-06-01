@@ -106,6 +106,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   Future<void> _loadMore() async {
+    debugPrint('[USERVIDEOS] _loadMore called: loadingMore=$_loadingMore '
+        'hasMore=$_hasMore nextCursor=$_nextCursor count=${_videos.length}');
     if (_loadingMore || !_hasMore || _nextCursor == null) return;
     setState(() => _loadingMore = true);
     try {

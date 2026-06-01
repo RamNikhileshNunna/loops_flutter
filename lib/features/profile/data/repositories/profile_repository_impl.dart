@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:loops_flutter/core/network/api_client.dart';
@@ -122,6 +124,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
     );
 
     final code = response.statusCode ?? 0;
+    _logPage('cursor', userId, cursor, code, response.data);
     if (code >= 200 && code < 300) {
       final page = _parsePage(response.data);
       if (page.videos.isNotEmpty || cursor != null) return page;
@@ -135,12 +138,28 @@ class ProfileRepositoryImpl implements ProfileRepository {
         queryParameters: {'limit': 20},
       );
       final altCode = alt.statusCode ?? 0;
+      _logPage('plain', userId, cursor, altCode, alt.data);
       if (altCode >= 200 && altCode < 300) {
         return _parsePage(alt.data);
       }
     }
 
     return const FeedPage(videos: [], nextCursor: null);
+  }
+
+  void _logPage(
+      String which, String userId, String? cursor, int code, dynamic data) {
+    try {
+      final d = data is Map ? data : const {};
+      final list = d['data'];
+      final count = list is List ? list.length : -1;
+      developer.log(
+        '[USERVIDEOS] via=$which user=$userId cursorIn=$cursor '
+        'status=$code count=$count '
+        'meta=${d['meta']} links=${d['links']}',
+        name: 'LoopsApp',
+      );
+    } catch (_) {}
   }
 
   @override
