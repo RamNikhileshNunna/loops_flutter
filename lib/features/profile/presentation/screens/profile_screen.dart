@@ -78,7 +78,7 @@ class _ProfileBody extends ConsumerWidget {
         body: NestedScrollView(
           headerSliverBuilder: (ctx, _) => [
             _ProfileSliverHeader(user: user),
-            _StickyTabBar(),
+            SliverPersistentHeader(delegate: _StickyTabBar(), pinned: true),
           ],
           body: const TabBarView(
             children: [
