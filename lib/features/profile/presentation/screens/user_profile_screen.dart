@@ -1,21 +1,79 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:loops_flutter/features/feed/domain/models/feed_page.dart';
 import 'package:loops_flutter/features/feed/domain/models/video_model.dart';
 import 'package:loops_flutter/features/feed/presentation/screens/feed_view_screen.dart';
 import 'package:loops_flutter/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:loops_flutter/features/profile/domain/models/user_model.dart';
+
+// ─── Providers ────────────────────────────────────────────────────────────────
 
 final _userProfileProvider =
     FutureProvider.family<UserModel?, String>((ref, userId) async {
   return ref.read(profileRepositoryProvider).getUserProfile(userId);
 });
 
-final _userVideosProvider =
-    FutureProvider.family<List<VideoModel>, String>((ref, userId) async {
-  final page = await ref.read(profileRepositoryProvider).getUserVideos(userId);
-  return page.videos;
-});
+// Paginating video controller for a specific user
+final userVideosControllerProvider =
+    AsyncNotifierProviderFamily<UserVideosController, List<VideoModel>, String>(
+  UserVideosController.new,
+);
+
+class UserVideosController
+    extends FamilyAsyncNotifier<List<VideoModel>, String> {
+  String? _nextCursor;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+
+  @override
+  FutureOr<List<VideoModel>> build(String userId) async {
+    final page = await _fetchPage();
+    _setCursor(page);
+    return page.videos;
+  }
+
+  Future<FeedPage> _fetchPage({String? cursor}) {
+    return ref
+        .read(profileRepositoryProvider)
+        .getUserVideos(arg, cursor: cursor);
+  }
+
+  void _setCursor(FeedPage page) {
+    _nextCursor = page.nextCursor;
+    _hasMore = _nextCursor != null && _nextCursor!.isNotEmpty;
+  }
+
+  Future<void> loadMore() async {
+    if (_isLoadingMore || !_hasMore || _nextCursor == null) return;
+    final current = state.asData?.value ?? const [];
+    _isLoadingMore = true;
+    try {
+      final page = await _fetchPage(cursor: _nextCursor);
+      _setCursor(page);
+      final seen = current.map((v) => v.id).toSet();
+      state = AsyncValue.data([
+        ...current,
+        ...page.videos.where((v) => !seen.contains(v.id)),
+      ]);
+    } catch (_) {
+      // keep existing items on pagination failure
+    } finally {
+      _isLoadingMore = false;
+    }
+  }
+
+  Future<void> refresh() async {
+    _nextCursor = null;
+    _hasMore = true;
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final page = await _fetchPage();
+      _setCursor(page);
+      return page.videos;
+    });
+  }
+}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +88,28 @@ class UserProfileScreen extends ConsumerStatefulWidget {
 class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool? _isFollowing;
   bool _isToggling = false;
+  late final ScrollController _scroll;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll = ScrollController()..addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >=
+        _scroll.position.maxScrollExtent - 400) {
+      ref
+          .read(userVideosControllerProvider(widget.userId).notifier)
+          .loadMore();
+    }
+  }
 
   Future<void> _toggleFollow() async {
     if (_isToggling) return;
@@ -52,10 +132,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     if (mounted) setState(() => _isToggling = false);
   }
 
+  void _refresh() {
+    ref.invalidate(_userProfileProvider(widget.userId));
+    ref
+        .read(userVideosControllerProvider(widget.userId).notifier)
+        .refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(_userProfileProvider(widget.userId));
-    final videosAsync = ref.watch(_userVideosProvider(widget.userId));
+    final videosAsync = ref.watch(userVideosControllerProvider(widget.userId));
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -65,7 +152,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         data: (user) {
           if (user == null) return _ErrorView(message: 'User not found');
 
-          // Initialise follow state on first load
           if (_isFollowing == null && !user.isOwner) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) setState(() => _isFollowing = false);
@@ -73,14 +159,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           }
 
           return CustomScrollView(
+            controller: _scroll,
             slivers: [
-              // ── Top bar ─────────────────────────────────────────────────
+              // ── Top bar ──────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _TopBar(
-                    username: user.username, userId: widget.userId),
+                  username: user.username,
+                  onRefresh: _refresh,
+                ),
               ),
 
-              // ── Profile header ───────────────────────────────────────────
+              // ── Profile header ────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _ProfileHeader(
                   user: user,
@@ -90,7 +179,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 ),
               ),
 
-              // ── Tab-bar look-alike divider ────────────────────────────────
+              // ── Section divider ───────────────────────────────────────────
               SliverToBoxAdapter(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -135,12 +224,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   ),
                 ),
                 error: (_, __) => SliverToBoxAdapter(
-                  child: _RetryVideos(userId: widget.userId),
+                  child: _RetryVideos(onRetry: _refresh),
                 ),
                 data: (videos) {
                   if (videos.isEmpty) {
                     return SliverToBoxAdapter(
-                      child: _RetryVideos(userId: widget.userId),
+                      child: _RetryVideos(onRetry: _refresh),
                     );
                   }
                   return SliverGrid(
@@ -169,6 +258,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 },
               ),
 
+              // ── Loading-more indicator ────────────────────────────────────
+              if (videosAsync.hasValue &&
+                  (videosAsync.asData?.value.isNotEmpty ?? false))
+                const SliverToBoxAdapter(
+                  child: _LoadMoreIndicator(),
+                ),
+
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           );
@@ -178,15 +274,15 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 }
 
-// ─── Top bar (back + username) ────────────────────────────────────────────────
+// ─── Top bar ──────────────────────────────────────────────────────────────────
 
-class _TopBar extends ConsumerWidget {
-  const _TopBar({required this.username, required this.userId});
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.username, required this.onRefresh});
   final String username;
-  final String userId;
+  final VoidCallback onRefresh;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -211,10 +307,7 @@ class _TopBar extends ConsumerWidget {
               ),
             ),
             IconButton(
-              onPressed: () {
-                ref.invalidate(_userProfileProvider(userId));
-                ref.invalidate(_userVideosProvider(userId));
-              },
+              onPressed: onRefresh,
               icon: const Icon(Icons.refresh_rounded,
                   color: Colors.white54, size: 22),
             ),
@@ -256,7 +349,7 @@ class _ProfileHeader extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
 
-        // ── Avatar ────────────────────────────────────────────────────────
+        // Avatar
         CircleAvatar(
           radius: 48,
           backgroundColor: const Color(0xFF2A2A2A),
@@ -271,7 +364,7 @@ class _ProfileHeader extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // ── Username ──────────────────────────────────────────────────────
+        // Username
         Text(
           '@${user.username}',
           style: const TextStyle(
@@ -281,7 +374,7 @@ class _ProfileHeader extends StatelessWidget {
           ),
         ),
 
-        // ── Display name ──────────────────────────────────────────────────
+        // Display name
         if (hasName) ...[
           const SizedBox(height: 3),
           Text(
@@ -290,7 +383,7 @@ class _ProfileHeader extends StatelessWidget {
           ),
         ],
 
-        // ── Bio ───────────────────────────────────────────────────────────
+        // Bio
         if (hasBio) ...[
           const SizedBox(height: 8),
           Padding(
@@ -311,7 +404,7 @@ class _ProfileHeader extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // ── Stats ─────────────────────────────────────────────────────────
+        // Stats
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -330,7 +423,7 @@ class _ProfileHeader extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // ── Follow button ─────────────────────────────────────────────────
+        // Follow button
         if (onFollowTap != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -410,7 +503,6 @@ class _Stat extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white54,
               fontSize: 12,
-              fontWeight: FontWeight.w400,
             ),
           ),
         ],
@@ -462,7 +554,8 @@ class _GridTile extends StatelessWidget {
           right: 0,
           bottom: 0,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -495,14 +588,36 @@ class _GridTile extends StatelessWidget {
   }
 }
 
-// ─── Empty / loading / error ──────────────────────────────────────────────────
+// ─── Loading more indicator ───────────────────────────────────────────────────
 
-class _RetryVideos extends ConsumerWidget {
-  const _RetryVideos({required this.userId});
-  final String userId;
+class _LoadMoreIndicator extends ConsumerWidget {
+  const _LoadMoreIndicator();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Show a spinner only while actively loading more
+    return const SizedBox(
+      height: 48,
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: Colors.white38),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Empty / error states ─────────────────────────────────────────────────────
+
+class _RetryVideos extends StatelessWidget {
+  const _RetryVideos({required this.onRetry});
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 32),
       child: Column(
@@ -525,7 +640,7 @@ class _RetryVideos extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           OutlinedButton.icon(
-            onPressed: () => ref.invalidate(_userVideosProvider(userId)),
+            onPressed: onRetry,
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white24),
@@ -549,7 +664,8 @@ class _LoadingView extends StatelessWidget {
     return const Scaffold(
       backgroundColor: Colors.black,
       body: Center(
-        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        child: CircularProgressIndicator(
+            color: Colors.white, strokeWidth: 2),
       ),
     );
   }
@@ -571,7 +687,8 @@ class _ErrorView extends StatelessWidget {
                 color: Colors.white38, size: 52),
             const SizedBox(height: 12),
             Text(message,
-                style: const TextStyle(color: Colors.white70, fontSize: 15)),
+                style:
+                    const TextStyle(color: Colors.white70, fontSize: 15)),
             const SizedBox(height: 16),
             TextButton(
               onPressed: () => Navigator.of(context).maybePop(),
