@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:flutter/services.dart';
-
-import '../../domain/models/video_model.dart';
 import '../controllers/feed_controller.dart';
 import '../widgets/feed_view.dart';
+
+enum _Tab { forYou, following }
 
 class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
@@ -14,224 +14,83 @@ class FeedScreen extends ConsumerStatefulWidget {
   ConsumerState<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends ConsumerState<FeedScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-  bool _retriedForYou = false;
-  bool _retriedFollowing = false;
+class _FeedScreenState extends ConsumerState<FeedScreen> {
+  _Tab _tab = _Tab.forYou;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    // Ensure feed loads on first entry
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _forYouNotifier().refresh();
-      _followingNotifier().refresh();
-    });
-    _tabController.addListener(() {
-      setState(() {});
-      // Trigger load for following feed when switched the first time
-      if (_tabController.index == 1) {
-        final following = ref.read(followingFeedControllerProvider);
-        if (following.hasError ||
-            following.isLoading ||
-            following.value?.isNotEmpty == true) {
-          return;
-        }
-        _followingNotifier().refresh();
-      }
+      ref.read(feedControllerProvider.notifier).refresh();
     });
   }
 
-  FeedController _forYouNotifier() => ref.read(feedControllerProvider.notifier);
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
 
-  FollowingFeedController _followingNotifier() =>
-      ref.read(followingFeedControllerProvider.notifier);
+  void _switchTab(_Tab tab) {
+    if (_tab == tab) return;
+    setState(() => _tab = tab);
+    if (tab == _Tab.following) {
+      final state = ref.read(followingFeedControllerProvider);
+      if (!state.isLoading && (state.hasError || state.value?.isEmpty == true)) {
+        ref.read(followingFeedControllerProvider.notifier).refresh();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Fullscreen immersive like TikTok
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-
-    final isForYou = _tabController.index == 0;
-    final feedState = isForYou
-        ? ref.watch(feedControllerProvider)
-        : ref.watch(followingFeedControllerProvider);
-
-    // Check if we need to retry empty feed automatically
-    final isRetrying = _maybeRetryIfEmpty(isForYou, feedState);
+    final forYouState = ref.watch(feedControllerProvider);
+    final followingState = ref.watch(followingFeedControllerProvider);
+    final activeState = _tab == _Tab.forYou ? forYouState : followingState;
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: feedState.when(
-        data: (videos) =>
-            _buildFeedBody(context, feedState, videos, isForYou, isRetrying),
-        error: (err, stack) => Center(
-          child: Text(
-            'Error: $err',
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
-        loading: () =>
-            const Center(child: CircularProgressIndicator(color: Colors.white)),
-      ),
-    );
-  }
-
-  bool _maybeRetryIfEmpty(
-    bool isForYou,
-    AsyncValue<List<VideoModel>> feedState,
-  ) {
-    final hasData = feedState.asData?.value.isNotEmpty == true;
-    final alreadyRetried = isForYou ? _retriedForYou : _retriedFollowing;
-
-    if (hasData ||
-        feedState.isLoading ||
-        feedState.isRefreshing ||
-        alreadyRetried) {
-      return false;
-    }
-
-    // Schedule retry
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (isForYou) {
-        _forYouNotifier().refresh();
-      } else {
-        _followingNotifier().refresh();
-      }
-    });
-
-    // Mark as retried
-    if (isForYou) {
-      _retriedForYou = true;
-    } else {
-      _retriedFollowing = true;
-    }
-    return true;
-  }
-
-  Widget _buildFeedBody(
-    BuildContext context,
-    AsyncValue<List<VideoModel>> feedState,
-    List<VideoModel> videos,
-    bool isForYou,
-    bool isRetrying,
-  ) {
-    // Show loading if state says so OR if we just triggered an auto-retry
-    final isLoading =
-        feedState.isLoading || feedState.isRefreshing || isRetrying;
-
-    if (videos.isEmpty) {
-      return Center(
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'No videos found',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (isForYou) {
-                        await _forYouNotifier().refresh();
-                      } else {
-                        await _followingNotifier().refresh();
-                      }
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-      );
-    }
-
-    return RefreshIndicator(
-      backgroundColor: Colors.black,
-      color: Colors.white,
-      onRefresh: () async {
-        if (isForYou) {
-          await _forYouNotifier().refresh();
-        } else {
-          await _followingNotifier().refresh();
-        }
-      },
-      child: Stack(
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          FeedView(
-            videos: videos,
-            onLoadMore: () {
-              if (isForYou) {
-                ref.read(feedControllerProvider.notifier).loadMore();
-              } else {
-                ref.read(followingFeedControllerProvider.notifier).loadMore();
-              }
+          // ── Main feed area ────────────────────────────────────────────────
+          activeState.when(
+            loading: () => _loadingView(),
+            error: (e, _) => _errorView(e),
+            data: (videos) {
+              if (videos.isEmpty) return _emptyView();
+              return FeedView(
+                // Use a ValueKey so Flutter replaces the widget (and its
+                // PageController) when the tab changes, giving a clean start.
+                key: ValueKey(_tab),
+                videos: videos,
+                onLoadMore: _tab == _Tab.forYou
+                    ? () => ref.read(feedControllerProvider.notifier).loadMore()
+                    : () => ref
+                          .read(followingFeedControllerProvider.notifier)
+                          .loadMore(),
+              );
             },
           ),
-          // Top overlay with tabs similar to Reels
+
+          // ── Top header overlay ────────────────────────────────────────────
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: SafeArea(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.video_collection_outlined,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TabBar(
-                        controller: _tabController,
-                        indicator: const UnderlineTabIndicator(
-                          borderSide: BorderSide(color: Colors.white, width: 3),
-                          insets: EdgeInsets.symmetric(horizontal: 18),
-                        ),
-                        indicatorSize: TabBarIndicatorSize.label,
-                        labelColor: Colors.white,
-                        unselectedLabelColor: Colors.white70,
-                        labelStyle: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                        tabs: const [
-                          Tab(text: 'For You'),
-                          Tab(text: 'Following'),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        if (_tabController.index == 0) {
-                          _forYouNotifier().refresh();
-                        } else {
-                          _followingNotifier().refresh();
-                        }
-                      },
-                      icon: const Icon(Icons.refresh, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
+            child: _TopBar(
+              tab: _tab,
+              isRefreshing: activeState.isRefreshing,
+              onTabChanged: _switchTab,
+              onRefresh: () {
+                _tab == _Tab.forYou
+                    ? ref.read(feedControllerProvider.notifier).refresh()
+                    : ref
+                        .read(followingFeedControllerProvider.notifier)
+                        .refresh();
+              },
             ),
           ),
         ],
@@ -239,9 +98,224 @@ class _FeedScreenState extends ConsumerState<FeedScreen>
     );
   }
 
+  Widget _loadingView() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        const SizedBox(height: 16),
+        Text(
+          _tab == _Tab.forYou ? 'Loading your feed…' : 'Loading following…',
+          style: const TextStyle(color: Colors.white54, fontSize: 14),
+        ),
+      ],
+    ),
+  );
+
+  Widget _errorView(Object e) => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.wifi_off_rounded, color: Colors.white54, size: 48),
+        const SizedBox(height: 16),
+        const Text(
+          'Could not load feed',
+          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          e.toString(),
+          style: const TextStyle(color: Colors.white38, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed: () {
+            _tab == _Tab.forYou
+                ? ref.read(feedControllerProvider.notifier).refresh()
+                : ref.read(followingFeedControllerProvider.notifier).refresh();
+          },
+          style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+          child: const Text('Try again'),
+        ),
+      ],
+    ),
+  );
+
+  Widget _emptyView() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.video_library_outlined, color: Colors.white38, size: 56),
+        const SizedBox(height: 16),
+        Text(
+          _tab == _Tab.forYou
+              ? 'No videos found'
+              : 'Follow people to see their videos here',
+          style: const TextStyle(color: Colors.white70, fontSize: 15),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        OutlinedButton(
+          onPressed: () {
+            _tab == _Tab.forYou
+                ? ref.read(feedControllerProvider.notifier).refresh()
+                : ref.read(followingFeedControllerProvider.notifier).refresh();
+          },
+          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white30)),
+          child: const Text('Refresh'),
+        ),
+      ],
+    ),
+  );
+}
+
+// ─── Top overlay bar ─────────────────────────────────────────────────────────
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.tab,
+    required this.isRefreshing,
+    required this.onTabChanged,
+    required this.onRefresh,
+  });
+
+  final _Tab tab;
+  final bool isRefreshing;
+  final void Function(_Tab) onTabChanged;
+  final VoidCallback onRefresh;
+
   @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withValues(alpha: 0.65),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              // Loops logo mark
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.loop_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Tab switcher
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _TabItem(
+                      label: 'For You',
+                      active: tab == _Tab.forYou,
+                      onTap: () => onTabChanged(_Tab.forYou),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 1,
+                      height: 14,
+                      color: Colors.white24,
+                    ),
+                    const SizedBox(width: 8),
+                    _TabItem(
+                      label: 'Following',
+                      active: tab == _Tab.following,
+                      onTap: () => onTabChanged(_Tab.following),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Refresh
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: isRefreshing
+                    ? const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                        onPressed: onRefresh,
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabItem extends StatelessWidget {
+  const _TabItem({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedDefaultTextStyle(
+        duration: const Duration(milliseconds: 150),
+        style: TextStyle(
+          color: active ? Colors.white : Colors.white54,
+          fontSize: active ? 16 : 15,
+          fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+          shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label),
+            const SizedBox(height: 3),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              height: 2,
+              width: active ? 28 : 0,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
