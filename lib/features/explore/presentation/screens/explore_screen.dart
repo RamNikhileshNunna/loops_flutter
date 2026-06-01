@@ -54,12 +54,24 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Auto-select first tag
-    ref.listen(trendingTagsProvider, (_, next) {
-      if (_selectedTag == null && next.hasValue && next.value!.isNotEmpty) {
-        setState(() => _selectedTag = next.value!.first.name);
-      }
-    });
+    // Auto-select the first trending tag once tags are available.
+    //
+    // Watch (not just listen) the provider: ref.listen only delivers *changes*,
+    // so if trendingTagsProvider is already loaded at first build — which it is
+    // on desktop, where DesktopSidebar keeps it alive — the listener never
+    // fires and the grid would spin forever. Watching + a post-frame setState
+    // covers both the fresh-load and already-loaded cases.
+    final tagsState = ref.watch(trendingTagsProvider);
+    if (_selectedTag == null &&
+        tagsState.hasValue &&
+        (tagsState.value?.isNotEmpty ?? false)) {
+      final first = tagsState.value!.first.name;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedTag == null) {
+          setState(() => _selectedTag = first);
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
