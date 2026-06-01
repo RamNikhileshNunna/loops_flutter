@@ -10,7 +10,7 @@ abstract class VideoActionsRepository {
   Future<bool> likeVideo(String videoId);
   Future<bool> unlikeVideo(String videoId);
   Future<bool> commentVideo(String videoId, String comment, {String? parentId});
-  Future<bool> likeComment(String commentId);
-  Future<bool> unlikeComment(String commentId);
+  Future<bool> likeComment(String videoId, String commentId);
+  Future<bool> unlikeComment(String videoId, String commentId);
   Future<void> deleteComment(String videoId, String commentId);
 }

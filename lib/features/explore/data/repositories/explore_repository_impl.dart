@@ -20,7 +20,7 @@ class ExploreRepositoryImpl implements ExploreRepository {
   Future<List<UserModel>> getSuggestedAccounts() async {
     // Confirmed endpoint: api/v1/accounts/suggested
     try {
-      final response = await _apiClient.get('api/v1/account/suggested');
+      final response = await _apiClient.get('api/v1/accounts/suggested');
       final data = response.data['data'];
       if (data is List) {
         return data
@@ -80,9 +80,9 @@ class ExploreRepositoryImpl implements ExploreRepository {
   @override
   Future<List<UserModel>> searchUsers(String query) async {
     try {
-      final response = await _apiClient.get(
+      final response = await _apiClient.post(
         'api/v1/search/users',
-        queryParameters: {'query': query},
+        data: {'q': query},
       );
       final data = response.data['data'];
       if (data is List) {

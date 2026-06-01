@@ -69,8 +69,8 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
     try {
       final repo = ref.read(videoActionsRepositoryProvider);
       final success = isLiked
-          ? await repo.unlikeComment(comment.id)
-          : await repo.likeComment(comment.id);
+          ? await repo.unlikeComment(widget.videoId, comment.id)
+          : await repo.likeComment(widget.videoId, comment.id);
 
       if (!success) {
         // Revert

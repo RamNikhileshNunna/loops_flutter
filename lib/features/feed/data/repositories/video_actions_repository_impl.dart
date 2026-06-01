@@ -31,8 +31,8 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
     try {
       final response = await _apiClient.get('api/v1/video/$videoId');
       if (response.statusCode == 200 && response.data != null) {
-        final data = response.data['data'];
-        if (data != null) {
+        final data = response.data['data'] ?? response.data;
+        if (data is Map<String, dynamic>) {
           return VideoModel.fromJson(data);
         }
       }
@@ -42,52 +42,17 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
     }
   }
 
+  // GET /api/v1/video/showVideoLikes  (video id passed as query param)
   @override
   Future<List<dynamic>> getVideoLikes(String videoId) async {
     try {
-      final response = await _apiClient.get('api/v1/video/$videoId/likes');
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data['data'];
-        if (data is List) {
-          return data;
-        }
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  }
-
-  @override
-  Future<List<dynamic>> getVideoComments(String videoId) async {
-    try {
-      final response = await _apiClient.get('api/v1/video/$videoId/comments');
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data['data'];
-        if (data is List) {
-          return data;
-        }
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  }
-
-  @override
-  Future<List<dynamic>> getCommentReplies(
-    String videoId,
-    String commentId,
-  ) async {
-    try {
       final response = await _apiClient.get(
-        'api/v1/comments/$commentId/replies',
+        'api/v1/video/showVideoLikes',
+        queryParameters: {'id': videoId},
       );
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data['data'];
-        if (data is List) {
-          return data;
-        }
+        if (data is List) return data;
       }
       return [];
     } catch (e) {
@@ -95,16 +60,51 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
     }
   }
 
+  // GET /api/v1/video/comments/{vid}
   @override
-  Future<bool> likeVideo(String videoId) async {
-    return _postWithCsrf('api/v1/video/$videoId/like');
+  Future<List<dynamic>> getVideoComments(String videoId) async {
+    try {
+      final response =
+          await _apiClient.get('api/v1/video/comments/$videoId');
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data['data'];
+        if (data is List) return data;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 
+  // GET /api/v1/video/comments/reply/{vid}/{pid}
   @override
-  Future<bool> unlikeVideo(String videoId) async {
-    return _postWithCsrf('api/v1/video/$videoId/unlike');
+  Future<List<dynamic>> getCommentReplies(
+      String videoId, String commentId) async {
+    try {
+      final response = await _apiClient.get(
+        'api/v1/video/comments/reply/$videoId/$commentId',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data['data'];
+        if (data is List) return data;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 
+  // POST /api/v1/video/like/{vid}
+  @override
+  Future<bool> likeVideo(String videoId) =>
+      _postWithCsrf('api/v1/video/like/$videoId');
+
+  // POST /api/v1/video/unlike/{vid}
+  @override
+  Future<bool> unlikeVideo(String videoId) =>
+      _postWithCsrf('api/v1/video/unlike/$videoId');
+
+  // POST /api/v1/video/comments/{vid}  or  POST /api/v1/video/comments/reply/{vid}
   @override
   Future<bool> commentVideo(
     String videoId,
@@ -113,32 +113,32 @@ class VideoActionsRepositoryImpl implements VideoActionsRepository {
   }) async {
     if (parentId != null) {
       return _postWithCsrf(
-        'api/v1/comments/$parentId/reply',
-        data: {'comment': comment},
+        'api/v1/video/comments/reply/$videoId',
+        data: {'comment': comment, 'parent_id': parentId},
       );
     }
     return _postWithCsrf(
-      'api/v1/video/$videoId/comments',
+      'api/v1/video/comments/$videoId',
       data: {'comment': comment},
     );
   }
 
+  // POST /api/v1/comments/like/{vid}/{id}
   @override
-  Future<bool> likeComment(String commentId) async {
-    return _postWithCsrf('api/v1/comments/$commentId/like');
-  }
+  Future<bool> likeComment(String videoId, String commentId) =>
+      _postWithCsrf('api/v1/comments/like/$videoId/$commentId');
 
+  // POST /api/v1/comments/unlike/{vid}/{id}
   @override
-  Future<bool> unlikeComment(String commentId) async {
-    return _postWithCsrf('api/v1/comments/$commentId/unlike');
-  }
+  Future<bool> unlikeComment(String videoId, String commentId) =>
+      _postWithCsrf('api/v1/comments/unlike/$videoId/$commentId');
 
+  // POST /api/v1/comments/delete/{vid}/{id}
   @override
   Future<void> deleteComment(String videoId, String commentId) async {
     try {
-      await _apiClient.post('api/v1/comments/$commentId/delete');
-    } catch (e) {
-      // Ignore errors for delete
-    }
+      await _apiClient.ensureCsrfCookie();
+      await _apiClient.post('api/v1/comments/delete/$videoId/$commentId');
+    } catch (_) {}
   }
 }

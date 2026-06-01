@@ -155,6 +155,11 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<void> setInstance(String server) async {
+    await _storage.setInstance(server);
+  }
+
+  @override
   Future<void> logout() async {
     await _storage.clearToken();
     await _storage.setLoggedIn(false);

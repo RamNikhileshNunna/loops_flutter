@@ -13,4 +13,5 @@ abstract class AuthRepository {
   Future<bool> isAuthenticated();
   Future<bool> loginWithOAuth(String server);
   Future<bool> registerWithWebBrowser(String server);
+  Future<void> setInstance(String server);
 }

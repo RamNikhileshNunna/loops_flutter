@@ -16,7 +16,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   ProfileRepositoryImpl(this._apiClient);
 
-  static const String _myVideosPath = 'api/v1/studio/posts';
+  static const String _myVideosPath = 'api/v1/feed/account/self';
   static const String _myLikesPath = 'api/v1/account/videos/liked';
 
   FeedPage _parsePage(dynamic data) {
@@ -117,9 +117,11 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<FeedPage> getUserVideos(String userId, {String? cursor}) async {
+    final params = <String, dynamic>{'id': userId};
+    if (cursor != null) params['cursor'] = cursor;
     final response = await _apiClient.get(
-      'api/v1/feed/account/$userId',
-      queryParameters: cursor != null ? {'cursor': cursor} : null,
+      'api/v1/feed/account/$userId/cursor',
+      queryParameters: params,
     );
     return _parsePage(response.data);
   }

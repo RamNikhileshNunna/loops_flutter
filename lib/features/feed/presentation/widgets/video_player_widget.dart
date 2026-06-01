@@ -155,27 +155,35 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
 
   Future<void> _handleLike() async {
     if (_isLiking) return;
+
+    // Snapshot state BEFORE optimistic update so we can restore exactly.
+    final wasLiked = _isLiked;
+    final countBefore = _likeCount;
+
     setState(() {
       _isLiking = true;
-      _isLiked = !_isLiked;
-      _likeCount += _isLiked ? 1 : -1;
+      _isLiked = !wasLiked;
+      _likeCount = countBefore + (wasLiked ? -1 : 1);
     });
+
     try {
       final repo = ref.read(videoActionsRepositoryProvider);
-      final ok = _isLiked
-          ? await repo.likeVideo(widget.video.id)
-          : await repo.unlikeVideo(widget.video.id);
+      // wasLiked == true means user is un-liking; false means liking.
+      final ok = wasLiked
+          ? await repo.unlikeVideo(widget.video.id)
+          : await repo.likeVideo(widget.video.id);
+
       if (!ok && mounted) {
         setState(() {
-          _isLiked = !_isLiked;
-          _likeCount += _isLiked ? -1 : 1;
+          _isLiked = wasLiked;
+          _likeCount = countBefore;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _isLiked = !_isLiked;
-          _likeCount += _isLiked ? -1 : 1;
+          _isLiked = wasLiked;
+          _likeCount = countBefore;
         });
       }
     } finally {
