@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../feed/domain/models/video_model.dart';
@@ -115,7 +116,7 @@ class _ProfileVideoViewerScreenState
           ),
         ),
         loading: () =>
-            const Center(child: CircularProgressIndicator(color: Colors.white)),
+            AppLoading.centered(),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:loops_flutter/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:loops_flutter/features/profile/domain/models/user_model.dart';
@@ -86,7 +87,7 @@ class _UserList extends ConsumerWidget {
         );
       },
       loading: () =>
-          const Center(child: CircularProgressIndicator(color: Colors.white)),
+          AppLoading.centered(),
       error: (e, _) => Center(
         child: Text('Error: $e', style: const TextStyle(color: Colors.white)),
       ),

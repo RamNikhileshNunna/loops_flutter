@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:loops_flutter/features/explore/presentation/controllers/explore_controller.dart';
@@ -58,10 +59,10 @@ class ExploreGrid extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const SliverToBoxAdapter(
+      loading: () => SliverToBoxAdapter(
         child: Padding(
-          padding: EdgeInsets.all(32.0),
-          child: Center(child: CircularProgressIndicator(color: Colors.white)),
+          padding: const EdgeInsets.all(32.0),
+          child: AppLoading.centered(),
         ),
       ),
       error: (e, _) => SliverToBoxAdapter(

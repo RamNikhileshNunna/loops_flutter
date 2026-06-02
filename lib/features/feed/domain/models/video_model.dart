@@ -58,7 +58,26 @@ String _readSrcUrl(Map json, String key) {
     (value) => value != null && value.toString().isNotEmpty,
     orElse: () => '',
   );
-  return found?.toString() ?? '';
+  if (found != null && found.toString().isNotEmpty) return found.toString();
+
+  // Fallback: the explore tag-feed endpoint returns media with only a
+  // thumbnail and no playback URL, so the player would get an empty source and
+  // render black. The CDN serves the encoded video at the *same path* as the
+  // thumbnail — same hash, with any `_thumb_xxxx` suffix dropped and a
+  // `.720p.mp4` extension. Deriving it here keeps the grid → viewer flow
+  // working without an extra per-video detail request. (Verified: the derived
+  // URL matches `api/v1/video/{id}`'s src_url exactly.)
+  return _deriveSrcFromThumbnail(_readThumbnailUrl(json, 'thumbnail_url'));
+}
+
+String _deriveSrcFromThumbnail(String? thumb) {
+  if (thumb == null || thumb.isEmpty) return '';
+  final base = thumb.replaceAll(
+    RegExp(r'(_thumb_[A-Za-z0-9]+)?\.(jpg|jpeg|png|webp)$'),
+    '',
+  );
+  if (base == thumb || base.isEmpty) return '';
+  return '$base.720p.mp4';
 }
 
 String? _readThumbnailUrl(Map json, String key) {

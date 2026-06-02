@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/video_like_model.dart';
 import '../../data/repositories/video_actions_repository_impl.dart';
@@ -80,7 +81,7 @@ class _LikesSheetState extends ConsumerState<LikesSheet> {
               ),
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? AppLoading.centered()
                     : _error != null
                     ? Center(
                         child: Text(

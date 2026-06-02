@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:loops_flutter/features/explore/data/repositories/explore_repository_impl.dart';
 import 'package:loops_flutter/features/feed/domain/models/video_model.dart';
@@ -106,7 +107,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? AppLoading.centered()
           : TabBarView(
               controller: _tabController,
               children: [

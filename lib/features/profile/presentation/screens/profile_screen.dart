@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,9 +21,9 @@ class ProfileScreen extends ConsumerWidget {
     final userState = ref.watch(currentUserControllerProvider);
 
     return userState.when(
-      loading: () => const Scaffold(
+      loading: () => Scaffold(
         backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+        body: AppLoading.centered(),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: Colors.black,
@@ -350,7 +351,7 @@ class _VideosTab extends ConsumerWidget {
     final state = ref.watch(myVideosControllerProvider);
     return state.when(
       loading: () =>
-          const Center(child: CircularProgressIndicator(color: Colors.white)),
+          AppLoading.centered(),
       error: (e, _) => _TabError(message: 'Could not load videos'),
       data: (videos) => videos.isEmpty
           ? _TabEmpty(
@@ -371,7 +372,7 @@ class _LikesTab extends ConsumerWidget {
     final state = ref.watch(myLikedVideosControllerProvider);
     return state.when(
       loading: () =>
-          const Center(child: CircularProgressIndicator(color: Colors.white)),
+          AppLoading.centered(),
       error: (e, _) => _TabError(message: 'Could not load liked videos'),
       data: (videos) => videos.isEmpty
           ? _TabEmpty(

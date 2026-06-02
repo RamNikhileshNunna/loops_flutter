@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:loops_flutter/features/explore/data/repositories/explore_repository_impl.dart';
 import 'package:loops_flutter/features/explore/presentation/controllers/explore_controller.dart';
@@ -41,7 +42,7 @@ class SuggestedAccountsList extends ConsumerWidget {
                 },
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => AppLoading.centered(),
             error: (err, _) => const SizedBox.shrink(),
           ),
         ),
