@@ -33,11 +33,24 @@ class _FeedViewState extends State<FeedView> {
   @override
   void didUpdateWidget(FeedView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // When the video list is replaced (tab switch / refresh), jump back to top.
-    if (!identical(oldWidget.videos, widget.videos) &&
-        widget.videos.isNotEmpty) {
+    if (widget.videos.isEmpty) return;
+
+    // Distinguish a *replaced* feed (refresh / tab switch) from a *grown* one
+    // (pagination appends a page to the end). loadMore emits a new list
+    // instance with the same leading videos, so an identity check alone would
+    // treat every append as a replacement and jump to the top — snapping the
+    // user back to the first video each time they near the end, looping the
+    // feed forever. Only reset when the leading video actually changes.
+    final oldFirstId =
+        oldWidget.videos.isNotEmpty ? oldWidget.videos.first.id : null;
+    final newFirstId = widget.videos.first.id;
+    if (oldFirstId != newFirstId) {
       _currentIndex = 0;
-      _pageController.jumpToPage(0);
+      if (_pageController.hasClients) _pageController.jumpToPage(0);
+    } else if (_currentIndex > widget.videos.length - 1) {
+      // List shrank under the current page (e.g. a shorter refresh); keep the
+      // index in range so the PageView doesn't read past the end.
+      _currentIndex = widget.videos.length - 1;
     }
   }
 
