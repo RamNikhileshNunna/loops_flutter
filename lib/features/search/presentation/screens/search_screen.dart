@@ -62,22 +62,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: cs.surface,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
         title: TextField(
           controller: _controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: cs.onSurface),
           decoration: InputDecoration(
             hintText: 'Search users or videos...',
-            hintStyle: const TextStyle(color: Colors.white38),
+            hintStyle: TextStyle(color: cs.onSurfaceVariant),
+            filled: false,
             border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
             suffixIcon: _controller.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, color: Colors.white54),
+                    icon: Icon(Icons.clear, color: cs.onSurfaceVariant),
                     onPressed: () {
                       _controller.clear();
                       setState(() {
@@ -100,9 +102,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          indicatorColor: Colors.white,
           tabs: const [Tab(text: 'People'), Tab(text: 'Videos')],
         ),
       ),
@@ -133,33 +132,35 @@ class _UserResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (users.isEmpty) {
-      return const Center(
-        child: Text('No users found', style: TextStyle(color: Colors.white54)),
+      return Center(
+        child: Text('No users found',
+            style: TextStyle(color: cs.onSurfaceVariant)),
       );
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: users.length,
-      separatorBuilder: (_, __) => const Divider(color: Colors.white12),
+      separatorBuilder: (_, _) => const Divider(),
       itemBuilder: (_, i) {
         final u = users[i];
         return ListTile(
           contentPadding: EdgeInsets.zero,
           leading: CircleAvatar(
             radius: 24,
-            backgroundColor: Colors.grey[800],
+            backgroundColor: cs.surfaceContainerHighest,
             backgroundImage: u.avatar != null
                 ? CachedNetworkImageProvider(u.avatar!)
                 : null,
             child: u.avatar == null
-                ? const Icon(Icons.person, color: Colors.white)
+                ? Icon(Icons.person, color: cs.onSurfaceVariant)
                 : null,
           ),
           title: Text(
             '@${u.username}',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: cs.onSurface,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -168,12 +169,12 @@ class _UserResults extends StatelessWidget {
                   u.bio!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54),
+                  style: TextStyle(color: cs.onSurfaceVariant),
                 )
               : null,
           trailing: Text(
             '${u.followerCount} followers',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
           ),
           onTap: () => onTap(u),
         );
@@ -188,9 +189,11 @@ class _VideoResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (videos.isEmpty) {
-      return const Center(
-        child: Text('No videos found', style: TextStyle(color: Colors.white54)),
+      return Center(
+        child: Text('No videos found',
+            style: TextStyle(color: cs.onSurfaceVariant)),
       );
     }
     return GridView.builder(
@@ -222,16 +225,16 @@ class _VideoResults extends StatelessWidget {
                         imageUrl: thumbnail,
                         fit: BoxFit.cover,
                         memCacheWidth: 400,
-                        placeholder: (_, __) =>
-                            Container(color: Colors.grey[900]),
-                        errorWidget: (_, __, ___) =>
-                            Container(color: Colors.grey[900]),
+                        placeholder: (_, _) =>
+                            Container(color: cs.surfaceContainerHighest),
+                        errorWidget: (_, _, _) =>
+                            Container(color: cs.surfaceContainerHighest),
                       )
                     : Container(
-                        color: Colors.grey[900],
-                        child: const Icon(
+                        color: cs.surfaceContainerHighest,
+                        child: Icon(
                           Icons.play_arrow,
-                          color: Colors.white30,
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                 Positioned(

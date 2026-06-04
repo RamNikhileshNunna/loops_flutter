@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../controllers/profile_content_controllers.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
+import '../../../studio/presentation/screens/studio_screen.dart';
 import '../screens/relationship_screen.dart';
 import '../screens/profile_video_viewer_screen.dart';
 import 'package:loops_flutter/features/feed/domain/models/video_model.dart';
@@ -18,39 +19,36 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final userState = ref.watch(currentUserControllerProvider);
 
     return userState.when(
       loading: () => Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: cs.surface,
         body: AppLoading.centered(),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: cs.surface,
         body: Center(
-          child: Text('Error: $e', style: const TextStyle(color: Colors.white)),
+          child: Text('Error: $e', style: TextStyle(color: cs.onSurface)),
         ),
       ),
       data: (user) {
         if (user == null) {
           return Scaffold(
-            backgroundColor: Colors.black,
+            backgroundColor: cs.surface,
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_off_outlined,
-                      color: Colors.white38, size: 64),
+                  Icon(Icons.person_off_outlined,
+                      color: cs.onSurfaceVariant, size: 64),
                   const SizedBox(height: 16),
-                  const Text('Not signed in',
-                      style: TextStyle(color: Colors.white, fontSize: 18)),
+                  Text('Not signed in',
+                      style: TextStyle(color: cs.onSurface, fontSize: 18)),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: () => context.go('/login'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                    ),
                     child: const Text('Sign in'),
                   ),
                 ],
@@ -75,7 +73,7 @@ class _ProfileBody extends ConsumerWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: NestedScrollView(
           headerSliverBuilder: (ctx, _) => [
             _ProfileSliverHeader(user: user),
@@ -120,6 +118,7 @@ class _ProfileHeaderContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final hasName = user.name != null && user.name!.trim().isNotEmpty;
     final hasBio = user.bio != null && user.bio!.trim().isNotEmpty;
 
@@ -135,8 +134,8 @@ class _ProfileHeaderContent extends StatelessWidget {
                 Expanded(
                   child: Text(
                     hasName ? user.name! : user.username,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: cs.onSurface,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -150,15 +149,23 @@ class _ProfileHeaderContent extends StatelessWidget {
                     ref.read(myVideosControllerProvider.notifier).refresh();
                     ref.read(myLikedVideosControllerProvider.notifier).refresh();
                   },
-                  icon: const Icon(Icons.refresh_rounded,
-                      color: Colors.white54, size: 22),
+                  icon: Icon(Icons.refresh_rounded,
+                      color: cs.onSurfaceVariant, size: 22),
+                ),
+                IconButton(
+                  tooltip: 'Loops Studio',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StudioScreen()),
+                  ),
+                  icon: Icon(Icons.insights_rounded,
+                      color: cs.onSurface, size: 22),
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const SettingsScreen()),
                   ),
-                  icon: const Icon(Icons.settings_outlined,
-                      color: Colors.white, size: 22),
+                  icon: Icon(Icons.settings_outlined,
+                      color: cs.onSurface, size: 22),
                 ),
               ],
             ),
@@ -170,13 +177,13 @@ class _ProfileHeaderContent extends StatelessWidget {
         // ── Avatar (centered) ─────────────────────────────────────────────
         CircleAvatar(
           radius: 48,
-          backgroundColor: const Color(0xFF2A2A2A),
+          backgroundColor: cs.surfaceContainerHighest,
           backgroundImage: user.avatar != null && user.avatar!.isNotEmpty
               ? CachedNetworkImageProvider(user.avatar!)
               : null,
           child: user.avatar == null || user.avatar!.isEmpty
-              ? const Icon(Icons.person_rounded,
-                  size: 48, color: Colors.white38)
+              ? Icon(Icons.person_rounded,
+                  size: 48, color: cs.onSurfaceVariant)
               : null,
         ),
 
@@ -185,8 +192,8 @@ class _ProfileHeaderContent extends StatelessWidget {
         // ── Username ──────────────────────────────────────────────────────
         Text(
           '@${user.username}',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: cs.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -200,8 +207,8 @@ class _ProfileHeaderContent extends StatelessWidget {
             child: Text(
               user.bio!,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -294,24 +301,26 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final cs = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: cs.surface,
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          top: BorderSide(color: cs.outlineVariant),
+          bottom: BorderSide(color: cs.outlineVariant),
         ),
       ),
-      child: const TabBar(
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.white30,
-        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
-        indicatorColor: Colors.white,
+      child: TabBar(
+        labelColor: cs.onSurface,
+        unselectedLabelColor: cs.onSurfaceVariant,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        unselectedLabelStyle:
+            const TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
+        indicatorColor: cs.primary,
         indicatorSize: TabBarIndicatorSize.tab,
-        indicatorWeight: 1.5,
+        indicatorWeight: 2,
         dividerColor: Colors.transparent,
-        tabs: [
+        tabs: const [
           Tab(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -446,6 +455,7 @@ class _GridTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -456,11 +466,11 @@ class _GridTile extends StatelessWidget {
                 // Decode at grid-tile resolution, not full source — a 3-col
                 // grid never needs more than ~400px wide, saving lots of RAM.
                 memCacheWidth: 400,
-                placeholder: (_, __) =>
-                    Container(color: const Color(0xFF111111)),
-                errorWidget: (_, __, ___) => _placeholder(),
+                placeholder: (_, _) =>
+                    Container(color: cs.surfaceContainerHigh),
+                errorWidget: (_, _, _) => _placeholder(context),
               )
-            : _placeholder(),
+            : _placeholder(context),
         // Bottom gradient + like count
         Positioned(
           left: 0,
@@ -496,11 +506,14 @@ class _GridTile extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() => Container(
-        color: const Color(0xFF1A1A1A),
-        child:
-            const Icon(Icons.play_arrow_rounded, color: Colors.white24, size: 28),
-      );
+  Widget _placeholder(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      color: cs.surfaceContainerHighest,
+      child: Icon(Icons.play_arrow_rounded,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 28),
+    );
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -513,6 +526,7 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -523,8 +537,8 @@ class _Stat extends StatelessWidget {
           children: [
             Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: cs.onSurface,
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
@@ -533,8 +547,8 @@ class _Stat extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white54,
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
               ),
@@ -552,7 +566,7 @@ class _StatDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 28,
-      color: Colors.white12,
+      color: Theme.of(context).colorScheme.outlineVariant,
     );
   }
 }
@@ -571,7 +585,9 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final hasLabel = label != null && label!.isNotEmpty;
+    final fg = filled ? cs.onPrimary : cs.onSurface;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -580,9 +596,9 @@ class _ActionButton extends StatelessWidget {
           horizontal: hasLabel ? 14 : 12,
         ),
         decoration: BoxDecoration(
-          color: filled ? Colors.white : Colors.white.withValues(alpha: 0.08),
+          color: filled ? cs.primary : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(10),
-          border: filled ? null : Border.all(color: Colors.white.withValues(alpha: 0.20)),
+          border: filled ? null : Border.all(color: cs.outlineVariant),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -590,7 +606,7 @@ class _ActionButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: filled ? Colors.black : Colors.white,
+              color: fg,
               size: 16,
             ),
             if (hasLabel) ...[
@@ -598,7 +614,7 @@ class _ActionButton extends StatelessWidget {
               Text(
                 label!,
                 style: TextStyle(
-                  color: filled ? Colors.black : Colors.white,
+                  color: fg,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -620,18 +636,19 @@ class _TabEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white24, size: 56),
+          Icon(icon, color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 56),
           const SizedBox(height: 12),
           Text(message,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text(sub,
-              style: const TextStyle(color: Colors.white38, fontSize: 13)),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
         ],
       ),
     );
@@ -645,7 +662,8 @@ class _TabError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text(message, style: const TextStyle(color: Colors.white38)),
+      child: Text(message,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
     );
   }
 }

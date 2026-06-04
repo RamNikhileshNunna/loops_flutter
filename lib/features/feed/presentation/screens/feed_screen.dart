@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:loops_flutter/core/theme/app_theme.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import '../controllers/feed_controller.dart';
 import '../widgets/feed_view.dart';
 
@@ -102,7 +104,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        const AppLoading(size: 28, color: Colors.white),
         const SizedBox(height: 16),
         Text(
           _tab == _Tab.forYou ? 'Loading your feed…' : 'Loading following…',
@@ -135,7 +137,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 ? ref.read(feedControllerProvider.notifier).refresh()
                 : ref.read(followingFeedControllerProvider.notifier).refresh();
           },
-          style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
           child: const Text('Try again'),
         ),
       ],
@@ -306,11 +307,11 @@ class _TabItem extends StatelessWidget {
             const SizedBox(height: 3),
             AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              height: 2,
+              height: 2.5,
               width: active ? 28 : 0,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(1),
+                color: AppTheme.brand,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ],

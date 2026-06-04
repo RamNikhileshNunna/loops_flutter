@@ -64,6 +64,8 @@ dependencies:
   shimmer: ^3.0.0
   flutter_cache_manager: ^3.4.1
   http: ^1.6.0
+  # Line chart for the Loops Studio analytics screen.
+  fl_chart: ^0.69.2
 
 dev_dependencies:
   flutter_test:

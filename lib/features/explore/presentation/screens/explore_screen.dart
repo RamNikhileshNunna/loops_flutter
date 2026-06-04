@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import '../controllers/explore_controller.dart';
 import '../../data/models/tag_model.dart';
 import '../../data/repositories/explore_repository_impl.dart';
@@ -73,12 +74,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       });
     }
 
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: cs.surface,
       body: SafeArea(
         child: RefreshIndicator(
-          color: Colors.white,
-          backgroundColor: const Color(0xFF1A1A1A),
+          color: cs.primary,
+          backgroundColor: cs.surfaceContainerHighest,
           onRefresh: () async => _refresh(),
           child: CustomScrollView(
             controller: _scroll,
@@ -110,7 +112,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Divider(color: Colors.white10, height: 1),
+                  child: Divider(height: 1),
                 ),
               ),
 
@@ -118,13 +120,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               if (_selectedTag != null)
                 _TagFeedGrid(tag: _selectedTag!)
               else
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: SizedBox(
                     height: 200,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    ),
+                    child: AppLoading.centered(),
                   ),
                 ),
 
@@ -145,24 +144,25 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         height: 44,
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1C),
+          color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Row(
           children: [
             const SizedBox(width: 12),
-            const Icon(Icons.search_rounded, color: Colors.white38, size: 20),
+            Icon(Icons.search_rounded, color: cs.onSurfaceVariant, size: 20),
             const SizedBox(width: 10),
             Text(
               'Search videos, people…',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
             ),
           ],
         ),
@@ -186,12 +186,12 @@ class _SuggestedSection extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 'Suggested',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -204,7 +204,7 @@ class _SuggestedSection extends ConsumerWidget {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: users.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 20),
+                separatorBuilder: (_, _) => const SizedBox(width: 20),
                 itemBuilder: (_, i) => _SuggestedAccount(user: users[i]),
               ),
             ),
@@ -222,6 +222,7 @@ class _SuggestedAccount extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
@@ -237,13 +238,13 @@ class _SuggestedAccount extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: Colors.grey.shade900,
+                  backgroundColor: cs.surfaceContainerHighest,
                   backgroundImage: user.avatar != null
                       ? CachedNetworkImageProvider(user.avatar!)
                       : null,
                   child: user.avatar == null
-                      ? const Icon(Icons.person,
-                          color: Colors.white54, size: 28)
+                      ? Icon(Icons.person,
+                          color: cs.onSurfaceVariant, size: 28)
                       : null,
                 ),
                 Positioned(
@@ -259,12 +260,12 @@ class _SuggestedAccount extends ConsumerWidget {
                     child: Container(
                       width: 18,
                       height: 18,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF2D55),
+                      decoration: BoxDecoration(
+                        color: cs.primary,
                         shape: BoxShape.circle,
                       ),
                       child:
-                          const Icon(Icons.add, size: 12, color: Colors.white),
+                          Icon(Icons.add, size: 12, color: cs.onPrimary),
                     ),
                   ),
                 ),
@@ -273,8 +274,8 @@ class _SuggestedAccount extends ConsumerWidget {
             const SizedBox(height: 5),
             Text(
               user.username,
-              style: const TextStyle(
-                  color: Colors.white70, fontSize: 11),
+              style: TextStyle(
+                  color: cs.onSurfaceVariant, fontSize: 11),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -291,18 +292,19 @@ class _SuggestedSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return ListView.separated(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: 6,
-      separatorBuilder: (_, __) => const SizedBox(width: 20),
-      itemBuilder: (_, __) => Column(
+      separatorBuilder: (_, _) => const SizedBox(width: 20),
+      itemBuilder: (_, _) => Column(
         children: [
           Container(
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.07),
+              color: cs.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
           ),
@@ -311,7 +313,7 @@ class _SuggestedSkeleton extends StatelessWidget {
             width: 44,
             height: 10,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(5),
             ),
           ),
@@ -341,12 +343,12 @@ class _TagsSection extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 'Trending',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -359,7 +361,7 @@ class _TagsSection extends ConsumerWidget {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: tags.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (_, i) => _TagChip(
                   tag: tags[i],
                   selected: selectedTag == tags[i].name,
@@ -384,21 +386,22 @@ class _TagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : const Color(0xFF1C1C1C),
+          color: selected ? cs.primary : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(17),
-          border: selected ? null : Border.all(color: Colors.white12),
+          border: selected ? null : Border.all(color: cs.outlineVariant),
         ),
         alignment: Alignment.center,
         child: Text(
           '#${tag.name}',
           style: TextStyle(
-            color: selected ? Colors.black : Colors.white,
+            color: selected ? cs.onPrimary : cs.onSurface,
             fontSize: 13,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
           ),
@@ -413,15 +416,16 @@ class _TagSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return ListView.separated(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: 8,
-      separatorBuilder: (_, __) => const SizedBox(width: 8),
+      separatorBuilder: (_, _) => const SizedBox(width: 8),
       itemBuilder: (_, i) => Container(
         width: 70 + (i % 3) * 14.0,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
+          color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(17),
         ),
       ),
@@ -445,14 +449,12 @@ class _TagFeedGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(tagFeedControllerProvider(tag));
 
+    final cs = Theme.of(context).colorScheme;
     return state.when(
-      loading: () => const SliverToBoxAdapter(
+      loading: () => SliverToBoxAdapter(
         child: SizedBox(
           height: 300,
-          child: Center(
-            child: CircularProgressIndicator(
-                color: Colors.white, strokeWidth: 2),
-          ),
+          child: AppLoading.centered(),
         ),
       ),
       error: (e, _) => SliverToBoxAdapter(
@@ -460,7 +462,7 @@ class _TagFeedGrid extends ConsumerWidget {
           height: 200,
           child: Center(
             child: Text('Error: $e',
-                style: const TextStyle(color: Colors.white54)),
+                style: TextStyle(color: cs.onSurfaceVariant)),
           ),
         ),
       ),
@@ -472,7 +474,7 @@ class _TagFeedGrid extends ConsumerWidget {
               child: Center(
                 child: Text(
                   'No videos for #$tag',
-                  style: const TextStyle(color: Colors.white38),
+                  style: TextStyle(color: cs.onSurfaceVariant),
                 ),
               ),
             ),
@@ -518,6 +520,7 @@ class _GridTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final thumb = video.media.thumbnailUrl;
     return Stack(
       fit: StackFit.expand,
@@ -527,15 +530,15 @@ class _GridTile extends StatelessWidget {
                 imageUrl: thumb,
                 fit: BoxFit.cover,
                 memCacheWidth: 400,
-                placeholder: (_, __) =>
-                    Container(color: const Color(0xFF111111)),
-                errorWidget: (_, __, ___) =>
-                    Container(color: const Color(0xFF1A1A1A)),
+                placeholder: (_, _) =>
+                    Container(color: cs.surfaceContainerHigh),
+                errorWidget: (_, _, _) =>
+                    Container(color: cs.surfaceContainerHighest),
               )
             : Container(
-                color: const Color(0xFF1A1A1A),
-                child: const Icon(Icons.play_arrow_rounded,
-                    color: Colors.white12, size: 32),
+                color: cs.surfaceContainerHighest,
+                child: Icon(Icons.play_arrow_rounded,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 32),
               ),
         // Gradient + like count
         Positioned(

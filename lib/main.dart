@@ -13,6 +13,7 @@ import 'core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'features/feed/presentation/screens/feed_screen.dart';
 import 'features/profile/presentation/screens/profile_screen.dart';
+import 'features/studio/presentation/screens/studio_screen.dart';
 import 'features/explore/presentation/screens/explore_screen.dart';
 import 'features/activity/presentation/screens/activity_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
@@ -319,6 +320,20 @@ class _SideNav extends StatelessWidget {
               active: activeTab == 4,
               expanded: expanded,
               onTap: () => onTabTap(4),
+            ),
+            // Studio is a pushed destination (not a feed tab), mirroring how
+            // Settings opens from the profile screen.
+            Builder(
+              builder: (ctx) => _SideNavItem(
+                icon: Icons.insights_outlined,
+                activeIcon: Icons.insights_rounded,
+                label: 'Studio',
+                active: false,
+                expanded: expanded,
+                onTap: () => Navigator.of(ctx).push(
+                  MaterialPageRoute(builder: (_) => const StudioScreen()),
+                ),
+              ),
             ),
             const SizedBox(height: 14),
             Padding(

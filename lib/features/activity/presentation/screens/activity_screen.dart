@@ -73,6 +73,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final state = ref.watch(activityControllerProvider);
 
     final unreadCount = state.asData?.value
@@ -81,7 +82,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
         0;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: cs.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -115,8 +116,8 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
                     return _EmptyView(filter: _filter);
                   }
                   return RefreshIndicator(
-                    color: Colors.white,
-                    backgroundColor: const Color(0xFF1A1A1A),
+                    color: cs.primary,
+                    backgroundColor: cs.surfaceContainerHighest,
                     onRefresh: () =>
                         ref.read(activityControllerProvider.notifier).refresh(),
                     child: _GroupedList(
@@ -137,8 +138,8 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: 8,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (_, __) => const _NotifSkeleton(),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (_, _) => const _NotifSkeleton(),
     );
   }
 }
@@ -152,14 +153,15 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
-          const Text(
+          Text(
             'Activity',
             style: TextStyle(
-              color: Colors.white,
+              color: cs.onSurface,
               fontSize: 26,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
@@ -171,13 +173,13 @@ class _Header extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF2D55),
+                color: cs.primary,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: cs.onPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -187,7 +189,7 @@ class _Header extends StatelessWidget {
           const Spacer(),
           IconButton(
             onPressed: onRefresh,
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white54),
+            icon: Icon(Icons.refresh_rounded, color: cs.onSurfaceVariant),
           ),
         ],
       ),
@@ -204,6 +206,7 @@ class _FilterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
       height: 36,
       child: ListView(
@@ -220,16 +223,16 @@ class _FilterRow extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
-                  color: active ? Colors.white : const Color(0xFF1C1C1C),
+                  color: active ? cs.primary : cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(18),
                   border: active
                       ? null
-                      : Border.all(color: Colors.white12),
+                      : Border.all(color: cs.outlineVariant),
                 ),
                 child: Text(
                   f.label,
                   style: TextStyle(
-                    color: active ? Colors.black : Colors.white54,
+                    color: active ? cs.onPrimary : cs.onSurfaceVariant,
                     fontSize: 13,
                     fontWeight:
                         active ? FontWeight.w700 : FontWeight.w400,
@@ -305,12 +308,13 @@ class _GroupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 20, bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: cs.onSurface,
           fontSize: 15,
           fontWeight: FontWeight.w700,
         ),
@@ -327,19 +331,20 @@ class _NotifTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final n = notification;
     final isLike = n.type.contains('like');
     final isFollow = n.type.contains('follow');
     final isComment = n.type.contains('comment');
 
-    // Badge
+    // Badge — like uses the brand accent; follow/comment keep semantic hues.
     final (IconData badgeIcon, Color badgeColor) = isLike
-        ? (Icons.favorite_rounded, const Color(0xFFFF2D55))
+        ? (Icons.favorite_rounded, cs.primary)
         : isFollow
             ? (Icons.person_add_rounded, const Color(0xFF3B82F6))
             : isComment
                 ? (Icons.chat_bubble_rounded, const Color(0xFF10B981))
-                : (Icons.notifications_rounded, Colors.grey);
+                : (Icons.notifications_rounded, cs.onSurfaceVariant);
 
     // Action text
     final action = isLike
@@ -357,7 +362,7 @@ class _NotifTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: n.isRead
             ? Colors.transparent
-            : Colors.white.withValues(alpha: 0.04),
+            : cs.primary.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -381,15 +386,15 @@ class _NotifTile extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: Colors.grey.shade900,
+                backgroundColor: cs.surfaceContainerHighest,
                 backgroundImage: n.actorAvatarUrl != null
                     ? CachedNetworkImageProvider(n.actorAvatarUrl!)
                     : null,
                 child: n.actorAvatarUrl == null
                     ? Text(
                         actor.isNotEmpty ? actor[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: cs.onSurface,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -402,10 +407,11 @@ class _NotifTile extends StatelessWidget {
                 child: Container(
                   width: 18,
                   height: 18,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: badgeColor,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 1.5),
+                    border: Border.all(color: cs.surface, width: 1.5),
                   ),
                   child: Icon(badgeIcon, size: 10, color: Colors.white),
                 ),
@@ -424,8 +430,8 @@ class _NotifTile extends StatelessWidget {
                 children: [
                   RichText(
                     text: TextSpan(
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 13.5),
+                      style: TextStyle(
+                          color: cs.onSurface, fontSize: 13.5),
                       children: [
                         TextSpan(
                           text: actor,
@@ -435,7 +441,7 @@ class _NotifTile extends StatelessWidget {
                         const TextSpan(text: ' '),
                         TextSpan(
                           text: action,
-                          style: const TextStyle(color: Colors.white70),
+                          style: TextStyle(color: cs.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -445,8 +451,9 @@ class _NotifTile extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     _timeAgo(n.createdAt),
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 12),
+                    style: TextStyle(
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                        fontSize: 12),
                   ),
                 ],
               ),
@@ -463,10 +470,10 @@ class _NotifTile extends StatelessWidget {
                 width: 40,
                 height: 58,
                 fit: BoxFit.cover,
-                placeholder: (_, __) =>
-                    Container(width: 40, height: 58, color: Colors.grey[900]),
-                errorWidget: (_, __, ___) =>
-                    Container(width: 40, height: 58, color: Colors.grey[900]),
+                placeholder: (_, _) => Container(
+                    width: 40, height: 58, color: cs.surfaceContainerHighest),
+                errorWidget: (_, _, _) => Container(
+                    width: 40, height: 58, color: cs.surfaceContainerHighest),
               ),
             ),
           ],
@@ -486,6 +493,7 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final isAll = filter == _Filter.all;
     return Center(
       child: Column(
@@ -493,21 +501,21 @@ class _EmptyView extends StatelessWidget {
         children: [
           Icon(
             isAll ? Icons.notifications_none_rounded : Icons.inbox_outlined,
-            color: Colors.white24,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
             size: 64,
           ),
           const SizedBox(height: 16),
           Text(
             isAll ? 'All caught up!' : 'No ${filter.label.toLowerCase()}',
-            style: const TextStyle(
-                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
           Text(
             isAll
                 ? 'Your notifications will appear here'
                 : 'Nothing to show for this filter',
-            style: const TextStyle(color: Colors.white38, fontSize: 14),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
             textAlign: TextAlign.center,
           ),
         ],
@@ -522,21 +530,19 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.wifi_off_rounded, color: Colors.white38, size: 48),
+          Icon(Icons.wifi_off_rounded,
+              color: cs.onSurfaceVariant, size: 48),
           const SizedBox(height: 12),
-          const Text('Could not load notifications',
-              style: TextStyle(color: Colors.white70)),
+          Text('Could not load notifications',
+              style: TextStyle(color: cs.onSurfaceVariant)),
           const SizedBox(height: 16),
           OutlinedButton(
             onPressed: onRetry,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white24),
-            ),
             child: const Text('Retry'),
           ),
         ],
@@ -550,13 +556,14 @@ class _NotifSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: cs.surfaceContainerHighest,
             shape: BoxShape.circle,
           ),
         ),
@@ -569,7 +576,7 @@ class _NotifSkeleton extends StatelessWidget {
                 height: 13,
                 width: 160,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.07),
+                  color: cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
@@ -578,7 +585,7 @@ class _NotifSkeleton extends StatelessWidget {
                 height: 11,
                 width: 100,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
