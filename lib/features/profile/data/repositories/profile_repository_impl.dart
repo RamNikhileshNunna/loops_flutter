@@ -111,37 +111,35 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<FeedPage> getUserVideos(String userId, {String? cursor}) async {
-    // Always use the documented /cursor endpoint — it is the only one that
-    // returns a next-page cursor (meta.next_cursor / links.next). The
-    // non-cursor /feed/account/{id} path returns a page with NO cursor, which
-    // silently caps the grid at the first page.
+    // Paginate the account feed the same way the (working) for-you feed does:
+    // the plain `/feed/account/{id}` endpoint with `?cursor=`. The `/cursor`
+    // suffix endpoint hands out a token whose next page comes back EMPTY, so it
+    // can't actually page past the first 10 — we keep it only as a fallback.
     final params = <String, dynamic>{'limit': 20};
-    if (cursor != null && cursor.isNotEmpty) params['id'] = cursor;
+    if (cursor != null && cursor.isNotEmpty) params['cursor'] = cursor;
 
     final response = await _apiClient.get(
-      'api/v1/feed/account/$userId/cursor',
+      'api/v1/feed/account/$userId',
       queryParameters: params,
     );
-
     final code = response.statusCode ?? 0;
-    _logPage('cursor', userId, cursor, code, response.data);
+    _logPage('plain', userId, cursor, code, response.data);
     if (code >= 200 && code < 300) {
       final page = _parsePage(response.data);
       if (page.videos.isNotEmpty || cursor != null) return page;
     }
 
-    // Fallback for servers that reject the cursor endpoint without an id:
-    // fetch the first page from the plain account feed (no pagination).
-    if (cursor == null) {
-      final alt = await _apiClient.get(
-        'api/v1/feed/account/$userId',
-        queryParameters: {'limit': 20},
-      );
-      final altCode = alt.statusCode ?? 0;
-      _logPage('plain', userId, cursor, altCode, alt.data);
-      if (altCode >= 200 && altCode < 300) {
-        return _parsePage(alt.data);
-      }
+    // Fallback: the /cursor suffix endpoint (older deployments / first page).
+    final cParams = <String, dynamic>{'limit': 20};
+    if (cursor != null && cursor.isNotEmpty) cParams['cursor'] = cursor;
+    final alt = await _apiClient.get(
+      'api/v1/feed/account/$userId/cursor',
+      queryParameters: cParams,
+    );
+    final altCode = alt.statusCode ?? 0;
+    _logPage('cursor', userId, cursor, altCode, alt.data);
+    if (altCode >= 200 && altCode < 300) {
+      return _parsePage(alt.data);
     }
 
     return const FeedPage(videos: [], nextCursor: null);

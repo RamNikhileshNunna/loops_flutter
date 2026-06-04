@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../controllers/activity_controller.dart';
 import '../../domain/models/notification_model.dart';
+import '../../../feed/data/repositories/video_actions_repository_impl.dart';
+import '../../../feed/domain/models/video_model.dart';
+import '../../../feed/presentation/screens/feed_view_screen.dart';
+import '../../../profile/presentation/screens/user_profile_screen.dart';
 
 // ─── Filter tabs ──────────────────────────────────────────────────────────────
 
@@ -325,12 +329,63 @@ class _GroupHeader extends StatelessWidget {
 
 // ─── Notification tile ────────────────────────────────────────────────────────
 
-class _NotifTile extends StatelessWidget {
+class _NotifTile extends ConsumerWidget {
   const _NotifTile({required this.notification});
   final NotificationModel notification;
 
+  // Open the actor's profile (avatar / name tap).
+  void _openProfile(BuildContext context) {
+    final id = notification.actorId;
+    if (id == null || id.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => UserProfileScreen(userId: id)),
+    );
+  }
+
+  // Tapping the tile body: open the related post if there is one, otherwise
+  // fall back to the actor's profile (e.g. a follow notification).
+  Future<void> _openTarget(BuildContext context, WidgetRef ref) async {
+    final videoId = notification.videoId;
+    if (videoId == null || videoId.isEmpty) {
+      _openProfile(context);
+      return;
+    }
+
+    // This app uses go_router with a stateful shell, so the loading dialog and
+    // the page push live on different navigators. showDialog pushes onto the
+    // ROOT navigator, so it must be dismissed via the root navigator too —
+    // popping the branch navigator (Navigator.of(context)) would pop the
+    // Activity page itself and crash go_router.
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black54,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    VideoModel? video;
+    try {
+      video = await ref.read(videoActionsRepositoryProvider).getVideo(videoId);
+    } finally {
+      if (context.mounted) rootNavigator.pop(); // dismiss the loading dialog
+    }
+
+    if (!context.mounted) return;
+    if (video != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => FeedViewScreen(videos: [video!], initialIndex: 0),
+        ),
+      );
+    } else {
+      // Video unavailable (deleted / private) — fall back to the profile.
+      _openProfile(context);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final n = notification;
     final isLike = n.type.contains('like');
@@ -357,14 +412,16 @@ class _NotifTile extends StatelessWidget {
 
     final actor = n.actorName ?? 'Someone';
 
-    return Container(
+    return Material(
+      color: n.isRead
+          ? Colors.transparent
+          : cs.primary.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _openTarget(context, ref),
+        child: Container(
       margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(
-        color: n.isRead
-            ? Colors.transparent
-            : cs.primary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -381,7 +438,9 @@ class _NotifTile extends StatelessWidget {
           const SizedBox(width: 10),
 
           // Avatar + badge
-          Stack(
+          GestureDetector(
+            onTap: () => _openProfile(context),
+            child: Stack(
             clipBehavior: Clip.none,
             children: [
               CircleAvatar(
@@ -417,6 +476,7 @@ class _NotifTile extends StatelessWidget {
                 ),
               ),
             ],
+          ),
           ),
 
           const SizedBox(width: 12),
@@ -480,6 +540,8 @@ class _NotifTile extends StatelessWidget {
 
           const SizedBox(width: 10),
         ],
+      ),
+        ),
       ),
     );
   }

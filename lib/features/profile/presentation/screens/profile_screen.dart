@@ -405,7 +405,21 @@ class _VideoGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final storage = ref.read(storageServiceProvider);
 
-    return GridView.builder(
+    return NotificationListener<ScrollNotification>(
+      // The grid lives inside a NestedScrollView/TabBarView, so it has no
+      // ScrollController of its own — listen to the bubbling scroll
+      // notifications and page in more videos as we near the bottom.
+      onNotification: (n) {
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
+          if (isMyVideos) {
+            ref.read(myVideosControllerProvider.notifier).loadMore();
+          } else {
+            ref.read(myLikedVideosControllerProvider.notifier).loadMore();
+          }
+        }
+        return false;
+      },
+      child: GridView.builder(
       padding: EdgeInsets.zero,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 150,
@@ -430,6 +444,7 @@ class _VideoGrid extends ConsumerWidget {
           child: _GridTile(thumbnailUrl: thumb, likes: v.likes),
         );
       },
+      ),
     );
   }
 

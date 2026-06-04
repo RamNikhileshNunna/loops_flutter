@@ -117,13 +117,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           .getUserVideos(widget.userId, cursor: _nextCursor);
       if (!mounted) return;
       final seen = _videos.map((v) => v.id).toSet();
+      final fresh = page.videos.where((v) => !seen.contains(v.id)).toList();
       setState(() {
-        _videos.addAll(page.videos.where((v) => !seen.contains(v.id)));
+        _videos.addAll(fresh);
         _nextCursor = page.nextCursor;
-        _hasMore = page.nextCursor != null && page.nextCursor!.isNotEmpty;
+        // Stop when the server runs out of pages (no cursor) or a page adds
+        // nothing new (guards against a cursor that loops on the last page).
+        _hasMore = fresh.isNotEmpty &&
+            page.nextCursor != null &&
+            page.nextCursor!.isNotEmpty;
         _loadingMore = false;
       });
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[USERVIDEOS] _loadMore error: $e\n$st');
       if (mounted) setState(() => _loadingMore = false);
     }
   }
