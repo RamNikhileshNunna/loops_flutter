@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:loops_flutter/features/feed/domain/models/video_model.dart';
 import 'package:loops_flutter/features/feed/presentation/screens/feed_view_screen.dart';
 import 'package:loops_flutter/features/profile/data/repositories/profile_repository_impl.dart';
@@ -160,13 +161,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final profileAsync = ref.watch(_userProfileProvider(widget.userId));
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: cs.surface,
       body: profileAsync.when(
         loading: () => const _LoadingView(),
-        error: (_, __) => _ErrorView(message: 'Could not load profile'),
+        error: (_, _) => _ErrorView(message: 'Could not load profile'),
         data: (user) {
           if (user == null) {
             return _ErrorView(message: 'User not found');
@@ -197,13 +199,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
               // Video content
               if (_videosLoading)
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(48),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    ),
+                    padding: const EdgeInsets.all(48),
+                    child: AppLoading.centered(),
                   ),
                 )
               else if (_videosError || _videos.isEmpty)
@@ -240,14 +239,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 const SliverToBoxAdapter(
                   child: SizedBox(
                     height: 48,
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white38),
-                      ),
-                    ),
+                    child: Center(child: AppLoading(size: 22)),
                   ),
                 ),
 
@@ -269,6 +261,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -277,14 +270,14 @@ class _TopBar extends StatelessWidget {
           children: [
             IconButton(
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white, size: 20),
+              icon: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: cs.onSurface, size: 20),
             ),
             Expanded(
               child: Text(
                 '@$username',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: cs.onSurface,
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.2,
@@ -294,8 +287,8 @@ class _TopBar extends StatelessWidget {
             ),
             IconButton(
               onPressed: onRefresh,
-              icon: const Icon(Icons.refresh_rounded,
-                  color: Colors.white54, size: 22),
+              icon: Icon(Icons.refresh_rounded,
+                  color: cs.onSurfaceVariant, size: 22),
             ),
           ],
         ),
@@ -327,6 +320,7 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final hasBio = user.bio != null && user.bio!.trim().isNotEmpty;
     final hasName = user.name != null && user.name!.trim().isNotEmpty;
 
@@ -337,13 +331,13 @@ class _ProfileHeader extends StatelessWidget {
         // Avatar
         CircleAvatar(
           radius: 48,
-          backgroundColor: const Color(0xFF2A2A2A),
+          backgroundColor: cs.surfaceContainerHighest,
           backgroundImage: (user.avatar != null && user.avatar!.isNotEmpty)
               ? CachedNetworkImageProvider(user.avatar!)
               : null,
           child: (user.avatar == null || user.avatar!.isEmpty)
-              ? const Icon(Icons.person_rounded,
-                  size: 48, color: Colors.white38)
+              ? Icon(Icons.person_rounded,
+                  size: 48, color: cs.onSurfaceVariant)
               : null,
         ),
 
@@ -352,8 +346,8 @@ class _ProfileHeader extends StatelessWidget {
         // Username
         Text(
           '@${user.username}',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: cs.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -364,7 +358,7 @@ class _ProfileHeader extends StatelessWidget {
           const SizedBox(height: 3),
           Text(user.name!,
               style:
-                  const TextStyle(color: Colors.white54, fontSize: 13)),
+                  TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
         ],
 
         // Bio
@@ -375,8 +369,8 @@ class _ProfileHeader extends StatelessWidget {
             child: Text(
               user.bio!,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  color: Colors.white70, fontSize: 13, height: 1.4),
+              style: TextStyle(
+                  color: cs.onSurfaceVariant, fontSize: 13, height: 1.4),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -417,32 +411,24 @@ class _ProfileHeader extends StatelessWidget {
                   duration: const Duration(milliseconds: 180),
                   decoration: BoxDecoration(
                     color: isFollowing
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.white,
+                        ? cs.surfaceContainerHighest
+                        : cs.primary,
                     borderRadius: BorderRadius.circular(10),
                     border: isFollowing
-                        ? Border.all(
-                            color: Colors.white.withValues(alpha: 0.20))
+                        ? Border.all(color: cs.outlineVariant)
                         : null,
                   ),
                   child: Center(
                     child: isToggling
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: isFollowing
-                                  ? Colors.white
-                                  : Colors.black,
-                            ),
+                        ? AppLoading.small(
+                            color: isFollowing ? cs.onSurface : cs.onPrimary,
                           )
                         : Text(
                             isFollowing ? 'Unfollow' : 'Follow',
                             style: TextStyle(
                               color: isFollowing
-                                  ? Colors.white
-                                  : Colors.black,
+                                  ? cs.onSurface
+                                  : cs.onPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -464,24 +450,25 @@ class _ProfileHeader extends StatelessWidget {
 class _SectionDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          top: BorderSide(color: cs.outlineVariant),
+          bottom: BorderSide(color: cs.outlineVariant),
         ),
       ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.grid_on_rounded, color: Colors.white, size: 17),
-            SizedBox(width: 6),
+            Icon(Icons.grid_on_rounded, color: cs.onSurface, size: 17),
+            const SizedBox(width: 6),
             Text(
               'Videos',
               style: TextStyle(
-                color: Colors.white,
+                color: cs.onSurface,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -502,22 +489,23 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(value,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: cs.onSurface,
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
               )),
           const SizedBox(height: 3),
           Text(label,
-              style: const TextStyle(
-                color: Colors.white54,
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
                 fontSize: 12,
               )),
         ],
@@ -528,8 +516,10 @@ class _Stat extends StatelessWidget {
 
 class _StatDivider extends StatelessWidget {
   @override
-  Widget build(BuildContext context) =>
-      Container(width: 1, height: 28, color: Colors.white12);
+  Widget build(BuildContext context) => Container(
+      width: 1,
+      height: 28,
+      color: Theme.of(context).colorScheme.outlineVariant);
 }
 
 // ─── Grid tile ────────────────────────────────────────────────────────────────
@@ -546,6 +536,7 @@ class _GridTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final thumb = video.media.thumbnailUrl;
     return Stack(
       fit: StackFit.expand,
@@ -555,15 +546,15 @@ class _GridTile extends StatelessWidget {
                 imageUrl: thumb,
                 fit: BoxFit.cover,
                 memCacheWidth: 400,
-                placeholder: (_, __) =>
-                    const ColoredBox(color: Color(0xFF111111)),
-                errorWidget: (_, __, ___) =>
-                    const ColoredBox(color: Color(0xFF1A1A1A)),
+                placeholder: (_, _) =>
+                    ColoredBox(color: cs.surfaceContainerHigh),
+                errorWidget: (_, _, _) =>
+                    ColoredBox(color: cs.surfaceContainerHighest),
               )
-            : const ColoredBox(
-                color: Color(0xFF1A1A1A),
+            : ColoredBox(
+                color: cs.surfaceContainerHighest,
                 child: Icon(Icons.play_arrow_rounded,
-                    color: Colors.white24, size: 28),
+                    color: cs.onSurfaceVariant, size: 28),
               ),
         Positioned(
           left: 0,
@@ -612,33 +603,28 @@ class _RetryVideos extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 32),
       child: Column(
         children: [
-          const Icon(Icons.videocam_off_outlined,
-              color: Colors.white24, size: 48),
+          Icon(Icons.videocam_off_outlined,
+              color: cs.onSurfaceVariant, size: 48),
           const SizedBox(height: 12),
-          const Text('No videos found',
+          Text('No videos found',
               style: TextStyle(
-                  color: Colors.white70,
+                  color: cs.onSurface,
                   fontSize: 15,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'This account may have no public videos',
-            style: TextStyle(color: Colors.white38, fontSize: 13),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
           OutlinedButton.icon(
             onPressed: onRetry,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white24),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
             icon: const Icon(Icons.refresh_rounded, size: 16),
             label: const Text('Retry'),
           ),
@@ -654,11 +640,9 @@ class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-            child: CircularProgressIndicator(
-                color: Colors.white, strokeWidth: 2)),
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: AppLoading.centered(),
       );
 }
 
@@ -667,26 +651,27 @@ class _ErrorView extends StatelessWidget {
   final String message;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.person_off_outlined,
-                  color: Colors.white38, size: 52),
-              const SizedBox(height: 12),
-              Text(message,
-                  style: const TextStyle(
-                      color: Colors.white70, fontSize: 15)),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                child: const Text('Go back',
-                    style: TextStyle(color: Colors.white54)),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.person_off_outlined,
+                color: cs.onSurfaceVariant, size: 52),
+            const SizedBox(height: 12),
+            Text(message,
+                style: TextStyle(color: cs.onSurface, fontSize: 15)),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              child: const Text('Go back'),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }

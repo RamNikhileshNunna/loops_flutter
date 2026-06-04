@@ -6,6 +6,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loops_flutter/core/theme/theme_mode_controller.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import '../controllers/settings_controller.dart';
 
 import '../../../auth/data/repositories/auth_repository_impl.dart';
@@ -24,10 +26,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // ── Snack helper ──────────────────────────────────────────────────────────
 
   void _snack(String msg, {bool error = false}) {
+    final cs = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: error ? const Color(0xFF3D1010) : null,
+        backgroundColor: error ? cs.errorContainer : null,
       ),
     );
   }
@@ -185,11 +188,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, set) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Privacy',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              style: TextStyle(fontWeight: FontWeight.w700)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -213,13 +213,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel',
-                  style: TextStyle(color: Colors.white54)),
+              child: const Text('Cancel'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black),
               onPressed: () async {
                 final ok = await ref
                     .read(settingsControllerProvider.notifier)
@@ -239,32 +235,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // ── Delete / disable dialog ───────────────────────────────────────────────
 
   void _showDeleteAccount({required bool disable}) {
+    final cs = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           disable ? 'Disable Account' : 'Delete Account',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         content: Text(
           disable
               ? 'Your account will be suspended. You can reactivate it by contacting support or logging in again.'
               : 'This permanently deletes your account and all your videos. There is no way to undo this.',
-          style: const TextStyle(color: Colors.white70, height: 1.4),
+          style: const TextStyle(height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(color: Colors.white54)),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white),
+                backgroundColor: cs.error,
+                foregroundColor: cs.onError),
             onPressed: () async {
               Navigator.pop(ctx);
               final ctrl = ref.read(settingsControllerProvider.notifier);
@@ -289,23 +282,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final userState = ref.watch(currentUserControllerProvider);
     final user = userState.asData?.value;
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w700),
-        ),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
@@ -315,6 +297,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             avatarLoading: _avatarLoading,
             onAvatarTap: _pickAvatar,
           ),
+
+          const SizedBox(height: 8),
+
+          // ── Appearance section ────────────────────────────────────────────
+          const _AppearanceSection(),
 
           const SizedBox(height: 8),
 
@@ -379,7 +366,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _Item(
                   icon: Icons.delete_forever_outlined,
                   label: 'Delete Account',
-                  labelColor: Colors.redAccent,
+                  labelColor: cs.error,
                   onTap: () => _showDeleteAccount(disable: false),
                 ),
               ],
@@ -395,10 +382,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: Colors.redAccent.withValues(alpha: 0.3)),
+                      color: cs.error.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -407,14 +394,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       user != null
                           ? Icons.logout_rounded
                           : Icons.login_rounded,
-                      color: Colors.redAccent,
+                      color: cs.error,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       user != null ? 'Sign out' : 'Sign in',
-                      style: const TextStyle(
-                          color: Colors.redAccent,
+                      style: TextStyle(
+                          color: cs.error,
                           fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -424,14 +411,130 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: 32),
-          const Center(
+          Center(
             child: Text(
               'Loops v1.0.0',
-              style: TextStyle(color: Colors.white24, fontSize: 12),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
             ),
           ),
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Appearance section ───────────────────────────────────────────────────────
+
+class _AppearanceSection extends ConsumerWidget {
+  const _AppearanceSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final mode = ref.watch(themeModeControllerProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'APPEARANCE',
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                _ThemeOption(
+                  icon: Icons.brightness_auto_rounded,
+                  label: 'System',
+                  selected: mode == ThemeMode.system,
+                  onTap: () => ref
+                      .read(themeModeControllerProvider.notifier)
+                      .setMode(ThemeMode.system),
+                ),
+                _ThemeOption(
+                  icon: Icons.light_mode_rounded,
+                  label: 'Light',
+                  selected: mode == ThemeMode.light,
+                  onTap: () => ref
+                      .read(themeModeControllerProvider.notifier)
+                      .setMode(ThemeMode.light),
+                ),
+                _ThemeOption(
+                  icon: Icons.dark_mode_rounded,
+                  label: 'Dark',
+                  selected: mode == ThemeMode.dark,
+                  onTap: () => ref
+                      .read(themeModeControllerProvider.notifier)
+                      .setMode(ThemeMode.dark),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? cs.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            children: [
+              Icon(icon,
+                  size: 20,
+                  color: selected ? cs.onPrimary : cs.onSurfaceVariant),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -452,6 +555,7 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final username = user?.username as String? ?? '';
     final name = user?.name as String?;
     final avatar = user?.avatar as String?;
@@ -467,28 +571,23 @@ class _ProfileCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 32,
-                  backgroundColor: Colors.grey.shade900,
+                  backgroundColor: cs.surfaceContainerHighest,
                   backgroundImage: avatar != null && avatar.isNotEmpty
                       ? CachedNetworkImageProvider(avatar)
                       : null,
                   child: (avatar == null || avatar.isEmpty)
-                      ? const Icon(Icons.person, color: Colors.white54, size: 32)
+                      ? Icon(Icons.person, color: cs.onSurfaceVariant, size: 32)
                       : null,
                 ),
                 if (avatarLoading)
-                  Positioned.fill(
+                  const Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         shape: BoxShape.circle,
                       ),
-                      child: const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        ),
+                      child: Center(
+                        child: AppLoading.small(color: Colors.white),
                       ),
                     ),
                   )
@@ -500,13 +599,13 @@ class _ProfileCard extends StatelessWidget {
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: cs.primary,
                         shape: BoxShape.circle,
                         border:
-                            Border.all(color: Colors.black, width: 1.5),
+                            Border.all(color: cs.surface, width: 1.5),
                       ),
-                      child: const Icon(Icons.edit_rounded,
-                          size: 11, color: Colors.black),
+                      child: Icon(Icons.edit_rounded,
+                          size: 11, color: cs.onPrimary),
                     ),
                   ),
               ],
@@ -520,8 +619,8 @@ class _ProfileCard extends StatelessWidget {
                 if (name != null && name.isNotEmpty)
                   Text(
                     name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: cs.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
@@ -530,8 +629,8 @@ class _ProfileCard extends StatelessWidget {
                   username.isNotEmpty ? '@$username' : 'Not signed in',
                   style: TextStyle(
                     color: name != null && name.isNotEmpty
-                        ? Colors.white54
-                        : Colors.white,
+                        ? cs.onSurfaceVariant
+                        : cs.onSurface,
                     fontSize: 14,
                   ),
                 ),
@@ -553,6 +652,7 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -562,8 +662,8 @@ class _Section extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               title.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white38,
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
@@ -579,10 +679,10 @@ class _Section extends StatelessWidget {
                   children: [
                     e.value,
                     if (!isLast)
-                      const Divider(
+                      Divider(
                           height: 1,
                           indent: 52,
-                          color: Colors.white10),
+                          color: cs.outlineVariant.withValues(alpha: 0.5)),
                   ],
                 );
               }).toList(),
@@ -611,8 +711,9 @@ class _Item extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: const Color(0xFF141414),
+      color: cs.surfaceContainerHighest,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -620,7 +721,7 @@ class _Item extends StatelessWidget {
           child: Row(
             children: [
               Icon(icon,
-                  color: labelColor ?? Colors.white60, size: 20),
+                  color: labelColor ?? cs.onSurfaceVariant, size: 20),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -629,7 +730,7 @@ class _Item extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
-                        color: labelColor ?? Colors.white,
+                        color: labelColor ?? cs.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                       ),
@@ -638,15 +739,15 @@ class _Item extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle!,
-                        style: const TextStyle(
-                            color: Colors.white38, fontSize: 12),
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant, fontSize: 12),
                       ),
                     ],
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: Colors.white24, size: 20),
+              Icon(Icons.chevron_right_rounded,
+                  color: cs.onSurfaceVariant, size: 20),
             ],
           ),
         ),
@@ -674,6 +775,7 @@ class _PrivacyTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -681,35 +783,35 @@ class _PrivacyTile extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: selected
-              ? Colors.white.withValues(alpha: 0.1)
-              : Colors.white.withValues(alpha: 0.04),
+              ? cs.primary.withValues(alpha: 0.14)
+              : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? Colors.white38 : Colors.white12,
+            color: selected ? cs.primary : cs.outlineVariant,
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.white70, size: 20),
+            Icon(icon, color: selected ? cs.primary : cs.onSurfaceVariant, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
-                          color: Colors.white,
+                      style: TextStyle(
+                          color: cs.onSurface,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12)),
+                      style: TextStyle(
+                          color: cs.onSurfaceVariant, fontSize: 12)),
                 ],
               ),
             ),
             if (selected)
-              const Icon(Icons.check_circle_rounded,
-                  color: Colors.white, size: 18),
+              Icon(Icons.check_circle_rounded,
+                  color: cs.primary, size: 18),
           ],
         ),
       ),
@@ -741,13 +843,11 @@ class _DialogState extends State<_Dialog> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return AlertDialog(
-      backgroundColor: const Color(0xFF1A1A1A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(
         widget.title,
-        style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.w700),
+        style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -761,13 +861,9 @@ class _DialogState extends State<_Dialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel',
-              style: TextStyle(color: Colors.white54)),
+          child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black),
           onPressed: _loading
               ? null
               : () async {
@@ -778,18 +874,13 @@ class _DialogState extends State<_Dialog> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(msg),
-                        backgroundColor: ok ? null : const Color(0xFF3D1010),
+                        backgroundColor: ok ? null : cs.errorContainer,
                       ),
                     );
                   }
                 },
           child: _loading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child:
-                      CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                )
+              ? const AppLoading.small()
               : const Text('Save'),
         ),
       ],
@@ -816,31 +907,20 @@ class _DialogField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
         const SizedBox(height: 4),
         TextField(
           controller: ctrl,
           obscureText: obscure,
           maxLines: lines,
           keyboardType: keyboard,
-          style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.white24),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.06),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.white24),
-            ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),

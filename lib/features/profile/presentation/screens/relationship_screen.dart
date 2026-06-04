@@ -23,15 +23,9 @@ class RelationshipScreen extends ConsumerWidget {
       length: 2,
       initialIndex: initialTabIndex,
       child: Scaffold(
-        backgroundColor: Colors.black,
         appBar: AppBar(
-          backgroundColor: Colors.black,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text('Connect', style: TextStyle(color: Colors.white)),
+          title: const Text('Connect'),
           bottom: const TabBar(
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.grey,
             tabs: [
               Tab(text: 'Following'),
               Tab(text: 'Followers'),
@@ -73,14 +67,15 @@ class _UserList extends ConsumerWidget {
               type == _ListType.following
                   ? 'Not following anyone yet'
                   : 'No followers yet',
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           );
         }
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: users.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, _) => const SizedBox(height: 16),
           itemBuilder: (_, index) {
             return _UserTile(user: users[index]);
           },
@@ -89,7 +84,9 @@ class _UserList extends ConsumerWidget {
       loading: () =>
           AppLoading.centered(),
       error: (e, _) => Center(
-        child: Text('Error: $e', style: const TextStyle(color: Colors.white)),
+        child: Text('Error: $e',
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface)),
       ),
     );
   }
@@ -122,6 +119,7 @@ class _UserTileState extends ConsumerState<_UserTile> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
@@ -132,12 +130,12 @@ class _UserTileState extends ConsumerState<_UserTile> {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: Colors.grey[800],
+            backgroundColor: cs.surfaceContainerHighest,
             backgroundImage: widget.user.avatar != null
                 ? CachedNetworkImageProvider(widget.user.avatar!)
                 : null,
             child: widget.user.avatar == null
-                ? const Icon(Icons.person, color: Colors.white)
+                ? Icon(Icons.person, color: cs.onSurfaceVariant)
                 : null,
           ),
           const SizedBox(width: 12),
@@ -147,8 +145,8 @@ class _UserTileState extends ConsumerState<_UserTile> {
               children: [
                 Text(
                   widget.user.username,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -157,32 +155,40 @@ class _UserTileState extends ConsumerState<_UserTile> {
                     widget.user.bio!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(
+                        color: cs.onSurfaceVariant, fontSize: 12),
                   ),
               ],
             ),
           ),
           if (!widget.user.isOwner)
-            ElevatedButton(
-              onPressed: _busy ? null : _toggle,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isFollowing ? Colors.transparent : Colors.white,
-                foregroundColor: _isFollowing ? Colors.white : Colors.black,
-                side: const BorderSide(color: Colors.white30),
-                minimumSize: const Size(80, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: _busy
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(_isFollowing ? 'Unfollow' : 'Follow'),
-            ),
+            _isFollowing
+                ? OutlinedButton(
+                    onPressed: _busy ? null : _toggle,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(80, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: _busy
+                        ? const AppLoading.small()
+                        : const Text('Unfollow'),
+                  )
+                : FilledButton(
+                    onPressed: _busy ? null : _toggle,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(80, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: _busy
+                        ? AppLoading.small(color: cs.onPrimary)
+                        : const Text('Follow'),
+                  ),
         ],
       ),
     );

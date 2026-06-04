@@ -26,6 +26,7 @@ class StorageService {
   static const String keyToken = 'app.token';
   static const String keyInstance = 'app.instance';
   static const String keyLoggedIn = 'app.logged_in';
+  static const String keyThemeMode = 'app.theme_mode';
 
   String? getToken() => _prefs.getString(keyToken);
   Future<void> setToken(String token) => _prefs.setString(keyToken, token);
@@ -37,4 +38,9 @@ class StorageService {
 
   bool getLoggedIn() => _prefs.getBool(keyLoggedIn) ?? false;
   Future<void> setLoggedIn(bool v) => _prefs.setBool(keyLoggedIn, v);
+
+  /// Persisted appearance preference: 'system' | 'light' | 'dark'.
+  String getThemeMode() => _prefs.getString(keyThemeMode) ?? 'system';
+  Future<void> setThemeMode(String mode) =>
+      _prefs.setString(keyThemeMode, mode);
 }

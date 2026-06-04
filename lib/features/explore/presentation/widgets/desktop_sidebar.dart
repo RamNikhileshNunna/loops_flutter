@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import '../../data/repositories/explore_repository_impl.dart';
 import '../controllers/explore_controller.dart';
 import 'package:loops_flutter/features/profile/domain/models/user_model.dart';
@@ -17,7 +18,7 @@ class DesktopSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 320,
-      color: Colors.black,
+      color: Theme.of(context).colorScheme.surface,
       child: SafeArea(
         left: false,
         child: SingleChildScrollView(
@@ -43,6 +44,7 @@ class _SidebarSearch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const SearchScreen()),
@@ -50,19 +52,18 @@ class _SidebarSearch extends StatelessWidget {
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1C),
+          color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Row(
           children: [
             const SizedBox(width: 12),
-            const Icon(Icons.search_rounded, color: Colors.white38, size: 20),
+            Icon(Icons.search_rounded, color: cs.onSurfaceVariant, size: 20),
             const SizedBox(width: 10),
             Text(
               'Search',
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
             ),
           ],
         ),
@@ -83,17 +84,10 @@ class _SidebarSuggested extends ConsumerWidget {
         title: 'Suggested for you',
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 20),
-          child: Center(
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                  color: Colors.white24, strokeWidth: 2),
-            ),
-          ),
+          child: Center(child: AppLoading(size: 18, strokeWidth: 2)),
         ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (users) {
         if (users.isEmpty) return const SizedBox.shrink();
         final shown = users.take(6).toList();
@@ -145,6 +139,7 @@ class _SidebarAccountRowState extends ConsumerState<_SidebarAccountRow> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final user = widget.user;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -157,12 +152,12 @@ class _SidebarAccountRowState extends ConsumerState<_SidebarAccountRow> {
             ),
             child: CircleAvatar(
               radius: 20,
-              backgroundColor: Colors.grey.shade900,
+              backgroundColor: cs.surfaceContainerHighest,
               backgroundImage: user.avatar != null
                   ? CachedNetworkImageProvider(user.avatar!)
                   : null,
               child: user.avatar == null
-                  ? const Icon(Icons.person, color: Colors.white54, size: 20)
+                  ? Icon(Icons.person, color: cs.onSurfaceVariant, size: 20)
                   : null,
             ),
           ),
@@ -175,8 +170,8 @@ class _SidebarAccountRowState extends ConsumerState<_SidebarAccountRow> {
               ),
               child: Text(
                 user.username,
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w600),
                 maxLines: 1,
@@ -190,7 +185,7 @@ class _SidebarAccountRowState extends ConsumerState<_SidebarAccountRow> {
             child: Text(
               _following ? 'Following' : 'Follow',
               style: TextStyle(
-                color: _following ? Colors.white54 : const Color(0xFF4DA6FF),
+                color: _following ? cs.onSurfaceVariant : cs.primary,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -207,11 +202,12 @@ class _SidebarTrending extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final state = ref.watch(trendingTagsProvider);
 
     return state.when(
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (tags) {
         if (tags.isEmpty) return const SizedBox.shrink();
         return _SectionShell(
@@ -225,13 +221,13 @@ class _SidebarTrending extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C1C),
+                    color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white12),
+                    border: Border.all(color: cs.outlineVariant),
                   ),
                   child: Text(
                     '#${t.name}',
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: TextStyle(color: cs.onSurface, fontSize: 13),
                   ),
                 ),
             ],
@@ -254,8 +250,8 @@ class _SectionShell extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),

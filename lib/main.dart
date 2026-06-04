@@ -10,6 +10,7 @@ import 'core/responsive/responsive.dart';
 import 'features/explore/presentation/widgets/desktop_sidebar.dart';
 import 'core/storage/storage_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_mode_controller.dart';
 import 'package:go_router/go_router.dart';
 import 'features/feed/presentation/screens/feed_screen.dart';
 import 'features/profile/presentation/screens/profile_screen.dart';
@@ -94,36 +95,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       builder: (ctx) {
         final ctrl = TextEditingController();
         return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: const Text(
-            'Add a caption',
-            style: TextStyle(color: Colors.white),
-          ),
+          title: const Text('Add a caption'),
           content: TextField(
             controller: ctrl,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: 'Say something about your video…',
-              hintStyle: const TextStyle(color: Colors.white38),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.07),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
             ),
             maxLines: 3,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child:
-                  const Text('Skip', style: TextStyle(color: Colors.white54)),
+              child: const Text('Skip'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black),
               onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
               child: const Text('Upload'),
             ),
@@ -199,7 +184,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   // Phone / narrow window: full-bleed body + bottom nav.
   Widget _buildMobile() {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       extendBody: true, // video bleeds behind the nav bar
       body: widget.child,
       bottomNavigationBar: _BottomNav(
@@ -225,8 +210,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           )
         : widget.child;
 
+    final divider = Theme.of(context).colorScheme.outlineVariant;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Row(
         children: [
           _SideNav(
@@ -235,10 +221,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             onUploadTap: _startUpload,
             expanded: wide,
           ),
-          const VerticalDivider(width: 1, color: Colors.white10),
+          VerticalDivider(width: 1, color: divider),
           Expanded(child: content),
           if (wide) ...[
-            const VerticalDivider(width: 1, color: Colors.white10),
+            VerticalDivider(width: 1, color: divider),
             const DesktopSidebar(),
           ],
         ],
@@ -264,9 +250,10 @@ class _SideNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: expanded ? 220 : 76,
-      color: Colors.black,
+      color: cs.surface,
       child: SafeArea(
         right: false,
         child: Column(
@@ -277,17 +264,17 @@ class _SideNav extends StatelessWidget {
               padding: EdgeInsets.symmetric(
                   horizontal: expanded ? 22 : 0, vertical: 22),
               child: expanded
-                  ? const Text(
+                  ? Text(
                       'Loops',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: cs.onSurface,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
                       ),
                     )
-                  : const Icon(Icons.all_inclusive_rounded,
-                      color: Colors.white, size: 28),
+                  : Icon(Icons.all_inclusive_rounded,
+                      color: cs.onSurface, size: 28),
             ),
             _SideNavItem(
               icon: Icons.home_outlined,
@@ -367,7 +354,8 @@ class _SideNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? Colors.white : Colors.white60;
+    final cs = Theme.of(context).colorScheme;
+    final color = active ? cs.onSurface : cs.onSurfaceVariant;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 3),
       child: Material(
@@ -412,8 +400,9 @@ class _UploadButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: Colors.white,
+      color: cs.primary,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -424,20 +413,20 @@ class _UploadButton extends StatelessWidget {
           child: expanded
               ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.add_rounded, color: Colors.black, size: 22),
-                    SizedBox(width: 8),
+                  children: [
+                    Icon(Icons.add_rounded, color: cs.onPrimary, size: 22),
+                    const SizedBox(width: 8),
                     Text(
                       'Upload',
                       style: TextStyle(
-                        color: Colors.black,
+                        color: cs.onPrimary,
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
                       ),
                     ),
                   ],
                 )
-              : const Icon(Icons.add_rounded, color: Colors.black, size: 26),
+              : Icon(Icons.add_rounded, color: cs.onPrimary, size: 26),
         ),
       ),
     );
@@ -459,7 +448,7 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).padding.bottom;
+    final surface = Theme.of(context).colorScheme.surface;
 
     return Container(
       decoration: BoxDecoration(
@@ -467,9 +456,9 @@ class _BottomNav extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.transparent,
-            Colors.black.withValues(alpha: 0.85),
-            Colors.black,
+            surface.withValues(alpha: 0.0),
+            surface.withValues(alpha: 0.85),
+            surface,
           ],
           stops: const [0.0, 0.4, 1.0],
         ),
@@ -505,12 +494,12 @@ class _BottomNav extends StatelessWidget {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.add_rounded,
-                        color: Colors.black,
+                        color: Theme.of(context).colorScheme.onPrimary,
                         size: 26,
                       ),
                     ),
@@ -557,6 +546,8 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = active ? cs.onSurface : cs.onSurfaceVariant;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -569,7 +560,7 @@ class _NavItem extends StatelessWidget {
               child: Icon(
                 active ? activeIcon : icon,
                 key: ValueKey(active),
-                color: active ? Colors.white : Colors.white38,
+                color: color,
                 size: 26,
               ),
             ),
@@ -577,7 +568,7 @@ class _NavItem extends StatelessWidget {
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 150),
               style: TextStyle(
-                color: active ? Colors.white : Colors.white38,
+                color: color,
                 fontSize: 10,
                 fontWeight:
                     active ? FontWeight.w600 : FontWeight.w400,
@@ -599,12 +590,11 @@ class _UploadProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return AlertDialog(
-      backgroundColor: const Color(0xFF1A1A1A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text(
         'Uploading…',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        style: TextStyle(fontWeight: FontWeight.w700),
       ),
       content: ValueListenableBuilder<double>(
         valueListenable: progress,
@@ -618,16 +608,13 @@ class _UploadProgressDialog extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: value,
                   minHeight: 6,
-                  backgroundColor: Colors.white12,
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
               const SizedBox(height: 10),
               Text(
                 '${pct.toStringAsFixed(0)}%',
                 style:
-                    const TextStyle(color: Colors.white54, fontSize: 13),
+                    TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
               ),
             ],
           );
@@ -717,7 +704,7 @@ class LoopsApp extends ConsumerWidget {
       title: 'Loops',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
+      themeMode: ref.watch(themeModeControllerProvider),
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _AppScrollBehavior(),

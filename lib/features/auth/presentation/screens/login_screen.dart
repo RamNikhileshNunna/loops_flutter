@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:loops_flutter/features/auth/data/repositories/auth_repository_impl.dart';
 
 // ─── Flow steps ───────────────────────────────────────────────────────────────
@@ -127,7 +128,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: AnimatedSwitcher(
@@ -211,6 +211,7 @@ class _WelcomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
@@ -221,11 +222,11 @@ class _WelcomeView extends StatelessWidget {
           const _Logo(),
 
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Short videos.\nEndless creativity.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white60,
+              color: cs.onSurfaceVariant,
               fontSize: 18,
               height: 1.4,
             ),
@@ -250,16 +251,16 @@ class _WelcomeView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 "Don't have an account?  ",
-                style: TextStyle(color: Colors.white38, fontSize: 14),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
               ),
               GestureDetector(
                 onTap: onRegister,
-                child: const Text(
+                child: Text(
                   'Sign up',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: cs.primary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -304,6 +305,7 @@ class _EmailLoginView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
@@ -313,10 +315,10 @@ class _EmailLoginView extends StatelessWidget {
           _BackBtn(onTap: onBack),
           const SizedBox(height: 32),
 
-          const Text(
+          Text(
             'Sign in',
             style: TextStyle(
-              color: Colors.white,
+              color: cs.onSurface,
               fontSize: 30,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
@@ -325,7 +327,7 @@ class _EmailLoginView extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             'Sign in to $server',
-            style: const TextStyle(color: Colors.white38, fontSize: 15),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 15),
           ),
 
           const SizedBox(height: 32),
@@ -354,7 +356,7 @@ class _EmailLoginView extends StatelessWidget {
               onTap: onToggleObscure,
               child: Icon(
                 obscurePass ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                color: Colors.white38,
+                color: cs.onSurfaceVariant,
                 size: 20,
               ),
             ),
@@ -404,6 +406,7 @@ class _BrowserAuthView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
@@ -415,8 +418,8 @@ class _BrowserAuthView extends StatelessWidget {
 
           Text(
             isRegister ? 'Create account' : 'Sign in with browser',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: cs.onSurface,
               fontSize: 30,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
@@ -427,7 +430,7 @@ class _BrowserAuthView extends StatelessWidget {
             isRegister
                 ? 'Choose a server to create your account on'
                 : 'A browser will open to complete sign in',
-            style: const TextStyle(color: Colors.white38, fontSize: 15),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 15),
           ),
 
           const SizedBox(height: 32),
@@ -443,22 +446,22 @@ class _BrowserAuthView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: cs.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(color: cs.outlineVariant),
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded,
-                    color: Colors.white38, size: 18),
+                Icon(Icons.info_outline_rounded,
+                    color: cs.onSurfaceVariant, size: 18),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     isRegister
                         ? 'Your browser will open the Loops registration page.'
                         : 'Your browser will open the Loops sign-in page. Return here after authorising.',
-                    style: const TextStyle(
-                        color: Colors.white54, fontSize: 13, height: 1.4),
+                    style: TextStyle(
+                        color: cs.onSurfaceVariant, fontSize: 13, height: 1.4),
                   ),
                 ),
               ],
@@ -494,16 +497,13 @@ class _ServerChip extends StatelessWidget {
   final void Function(String) onChanged;
 
   void _showPicker(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final ctrl = TextEditingController(
         text: server == 'loops.video' ? '' : server);
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
           left: 20,
@@ -515,10 +515,10 @@ class _ServerChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Choose server',
               style: TextStyle(
-                  color: Colors.white,
+                  color: cs.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w700),
             ),
@@ -533,28 +533,19 @@ class _ServerChip extends StatelessWidget {
               },
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Custom server',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: ctrl,
               autofocus: false,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'your.loops.instance',
-                hintStyle: const TextStyle(color: Colors.white24),
                 prefixText: 'https://',
-                prefixStyle: const TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.06),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
               keyboardType: TextInputType.url,
               textInputAction: TextInputAction.done,
@@ -576,28 +567,29 @@ class _ServerChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _showPicker(context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.07),
+          color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.dns_outlined, color: Colors.white54, size: 16),
+            Icon(Icons.dns_outlined, color: cs.onSurfaceVariant, size: 16),
             const SizedBox(width: 8),
             Text(
               server,
-              style: const TextStyle(
-                  color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                  color: cs.onSurface, fontSize: 14, fontWeight: FontWeight.w500),
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.expand_more_rounded,
-                color: Colors.white38, size: 18),
+            Icon(Icons.expand_more_rounded,
+                color: cs.onSurfaceVariant, size: 18),
           ],
         ),
       ),
@@ -619,17 +611,18 @@ class _ServerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: selected
-              ? Colors.white.withValues(alpha: 0.1)
-              : Colors.white.withValues(alpha: 0.04),
+              ? cs.primary.withValues(alpha: 0.14)
+              : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: selected ? Colors.white38 : Colors.white12),
+              color: selected ? cs.primary : cs.outlineVariant),
         ),
         child: Row(
           children: [
@@ -637,16 +630,16 @@ class _ServerTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        color: cs.onSurface, fontWeight: FontWeight.w600)),
                 Text(subtitle,
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 12)),
+                    style: TextStyle(
+                        color: cs.onSurfaceVariant, fontSize: 12)),
               ],
             ),
             const Spacer(),
             if (selected)
-              const Icon(Icons.check_rounded, color: Colors.white, size: 18),
+              Icon(Icons.check_rounded, color: cs.primary, size: 18),
           ],
         ),
       ),
@@ -661,22 +654,23 @@ class _Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
         Container(
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cs.primary,
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Icon(Icons.loop_rounded, color: Colors.black, size: 40),
+          child: Icon(Icons.loop_rounded, color: cs.onPrimary, size: 40),
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'Loops',
           style: TextStyle(
-            color: Colors.white,
+            color: cs.onSurface,
             fontSize: 36,
             fontWeight: FontWeight.w800,
             letterSpacing: -1,
@@ -706,50 +700,27 @@ class _Btn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isFilled = style == _BtnStyle.filled;
-    return GestureDetector(
-      onTap: loading ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        height: 52,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: isFilled
-              ? (loading ? Colors.white60 : Colors.white)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: isFilled ? null : Border.all(color: Colors.white24),
-        ),
-        child: Center(
-          child: loading
-              ? SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: isFilled ? Colors.black : Colors.white,
-                  ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon,
-                          size: 18,
-                          color: isFilled ? Colors.black : Colors.white),
-                      const SizedBox(width: 8),
-                    ],
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: isFilled ? Colors.black : Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
+    final child = loading
+        ? const AppLoading.small()
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 18),
+                const SizedBox(width: 8),
+              ],
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700)),
+            ],
+          );
+
+    return SizedBox(
+      height: 52,
+      width: double.infinity,
+      child: isFilled
+          ? FilledButton(onPressed: loading ? null : onTap, child: child)
+          : OutlinedButton(onPressed: loading ? null : onTap, child: child),
     );
   }
 }
@@ -774,13 +745,16 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-              color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: cs.onSurfaceVariant,
+              fontSize: 13,
+              fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         TextField(
@@ -790,10 +764,8 @@ class _Field extends StatelessWidget {
           textInputAction:
               onSubmit != null ? TextInputAction.done : TextInputAction.next,
           onSubmitted: onSubmit != null ? (_) => onSubmit!() : null,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.white24),
             suffixIcon: suffix != null
                 ? Padding(
                     padding: const EdgeInsets.only(right: 12),
@@ -802,18 +774,6 @@ class _Field extends StatelessWidget {
                 : null,
             suffixIconConstraints:
                 const BoxConstraints(minWidth: 0, minHeight: 0),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.06),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.white38),
-            ),
           ),
         ),
       ],
@@ -827,16 +787,17 @@ class _BackBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white54, size: 16),
-          SizedBox(width: 6),
+              color: cs.onSurfaceVariant, size: 16),
+          const SizedBox(width: 6),
           Text('Back',
-              style: TextStyle(color: Colors.white54, fontSize: 15)),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 15)),
         ],
       ),
     );
@@ -849,23 +810,23 @@ class _ErrorBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF3D1010),
+        color: cs.errorContainer,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+        border: Border.all(color: cs.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: Colors.redAccent, size: 16),
+          Icon(Icons.error_outline_rounded,
+              color: cs.onErrorContainer, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style:
-                  const TextStyle(color: Colors.redAccent, fontSize: 13),
+              style: TextStyle(color: cs.onErrorContainer, fontSize: 13),
             ),
           ),
         ],
