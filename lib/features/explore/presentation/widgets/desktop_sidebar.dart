@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:loops_flutter/core/widgets/app_loading.dart';
 import '../../data/repositories/explore_repository_impl.dart';
 import '../controllers/explore_controller.dart';
+import 'package:loops_flutter/features/explore/presentation/screens/tag_feed_screen.dart';
 import 'package:loops_flutter/features/profile/domain/models/user_model.dart';
 import 'package:loops_flutter/features/profile/presentation/screens/user_profile_screen.dart';
 import 'package:loops_flutter/features/search/presentation/screens/search_screen.dart';
@@ -217,17 +218,27 @@ class _SidebarTrending extends ConsumerWidget {
             runSpacing: 8,
             children: [
               for (final t in tags.take(12))
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: cs.outlineVariant),
+                // Each chip opens that hashtag's full video feed.
+                Material(
+                  color: cs.surfaceContainerHighest,
+                  shape: StadiumBorder(
+                    side: BorderSide(color: cs.outlineVariant),
                   ),
-                  child: Text(
-                    '#${t.name}',
-                    style: TextStyle(color: cs.onSurface, fontSize: 13),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TagFeedScreen(tag: t.name),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      child: Text(
+                        '#${t.name}',
+                        style: TextStyle(color: cs.onSurface, fontSize: 13),
+                      ),
+                    ),
                   ),
                 ),
             ],

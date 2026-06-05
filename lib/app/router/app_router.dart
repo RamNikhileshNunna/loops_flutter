@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +10,11 @@ import 'package:loops_flutter/features/explore/presentation/screens/explore_scre
 import 'package:loops_flutter/features/feed/presentation/screens/feed_screen.dart';
 import 'package:loops_flutter/features/profile/presentation/screens/profile_screen.dart';
 import 'package:loops_flutter/features/profile/presentation/screens/user_profile_screen.dart';
+
+/// Key for the router's root [Navigator]. Used by the global Escape-to-go-back
+/// handler in `LoopsApp` to fall back to the shell's tab-history pop when the
+/// focused navigator has nothing of its own to pop.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// The app's [GoRouter], exposed as a provider so it can read other providers
 /// (e.g. the auth repository) for its redirect guard.
@@ -23,6 +29,7 @@ import 'package:loops_flutter/features/profile/presentation/screens/user_profile
 ///   /user/:id    → Another user's profile (pushed full-screen)
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     // Auth guard: bounce signed-out users to /login and signed-in users away
     // from it. Returning null means "no redirect — proceed as requested".

@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:loops_flutter/app/router/app_router.dart';
@@ -33,12 +34,43 @@ class LoopsApp extends ConsumerWidget {
           minScaleFactor: 0.85,
           maxScaleFactor: 1.2,
         );
-        return MediaQuery(
-          data: mq.copyWith(textScaler: clamped),
-          child: child ?? const SizedBox.shrink(),
+        // A top-level Focus node (which never grabs focus itself) sits above
+        // the whole navigator, so any key event unhandled by a focused widget
+        // bubbles up here — letting Escape act as a global "back" on desktop.
+        return Focus(
+          canRequestFocus: false,
+          onKeyEvent: _handleEscapeAsBack,
+          child: MediaQuery(
+            data: mq.copyWith(textScaler: clamped),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );
+  }
+
+  /// Treats the Escape key like the system back button.
+  ///
+  /// Pops whatever is on top of the *focused* navigator first (a pushed screen
+  /// such as Settings/Studio/a tag feed, or an open dialog). If that navigator
+  /// has nothing to pop, it falls back to the root navigator's [maybePop] so
+  /// the shell's tab-history back logic still runs.
+  KeyEventResult _handleEscapeAsBack(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape) {
+      return KeyEventResult.ignored;
+    }
+
+    final focusCtx = FocusManager.instance.primaryFocus?.context;
+    final nav = focusCtx != null ? Navigator.maybeOf(focusCtx) : null;
+    if (nav != null && nav.canPop()) {
+      nav.maybePop();
+      return KeyEventResult.handled;
+    }
+
+    // Nothing on the focused navigator → let the shell step back a tab.
+    rootNavigatorKey.currentState?.maybePop();
+    return KeyEventResult.handled;
   }
 }
 
