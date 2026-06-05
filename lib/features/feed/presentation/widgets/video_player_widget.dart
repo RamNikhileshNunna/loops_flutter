@@ -12,6 +12,7 @@ import 'platform_video.dart';
 import 'likes_sheet.dart';
 import 'package:loops_flutter/core/storage/storage_service.dart';
 import 'package:loops_flutter/features/profile/presentation/screens/user_profile_screen.dart';
+import 'package:loops_flutter/features/explore/presentation/screens/tag_feed_screen.dart';
 
 class VideoPlayerWidget extends ConsumerStatefulWidget {
   const VideoPlayerWidget({
@@ -461,17 +462,30 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget>
 
         if (tags.isNotEmpty) ...[
           const SizedBox(height: 6),
-          _shadow(
-            Text(
-              tags.map((t) => '#$t').join('  '),
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          // Each hashtag is tappable and opens that tag's full video feed.
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            children: [
+              for (final t in tags)
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TagFeedScreen(tag: t),
+                    ),
+                  ),
+                  child: _shadow(
+                    Text(
+                      '#$t',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ],

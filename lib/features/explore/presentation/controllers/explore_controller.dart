@@ -23,6 +23,10 @@ class TagFeedController extends _$TagFeedController {
   bool _isLoadingMore = false;
   bool _hasMore = true;
 
+  /// Whether another page is available. Lets a screen keep paging proactively
+  /// (e.g. to fill a viewport that the first page didn't make scrollable).
+  bool get hasMore => _hasMore;
+
   @override
   FutureOr<List<VideoModel>> build(String tag) async {
     final page = await _fetchPage(tag: tag);
