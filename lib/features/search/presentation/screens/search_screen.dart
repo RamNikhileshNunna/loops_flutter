@@ -2,7 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:loops_flutter/core/widgets/app_loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:loops_flutter/features/explore/data/models/tag_model.dart';
 import 'package:loops_flutter/features/explore/data/repositories/explore_repository_impl.dart';
+import 'package:loops_flutter/features/explore/presentation/screens/tag_feed_screen.dart';
 import 'package:loops_flutter/features/feed/domain/models/video_model.dart';
 import 'package:loops_flutter/features/feed/presentation/screens/feed_view_screen.dart';
 import 'package:loops_flutter/features/profile/domain/models/user_model.dart';
@@ -22,13 +24,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   List<UserModel> _users = [];
   List<VideoModel> _videos = [];
+  List<TagModel> _tags = [];
   bool _isLoading = false;
   String _lastQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -49,12 +52,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final results = await Future.wait([
       repo.searchUsers(q),
       repo.searchVideos(q),
+      repo.searchHashtags(q),
     ]);
 
     if (mounted) {
       setState(() {
         _users = results[0] as List<UserModel>;
         _videos = (results[1] as dynamic).videos as List<VideoModel>;
+        _tags = results[2] as List<TagModel>;
         _isLoading = false;
       });
     }
@@ -71,7 +76,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           autofocus: true,
           style: TextStyle(color: cs.onSurface),
           decoration: InputDecoration(
-            hintText: 'Search users or videos...',
+            hintText: 'Search users, videos, or #tags...',
             hintStyle: TextStyle(color: cs.onSurfaceVariant),
             filled: false,
             border: InputBorder.none,
@@ -85,6 +90,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       setState(() {
                         _users = [];
                         _videos = [];
+                        _tags = [];
                         _lastQuery = '';
                       });
                     },
@@ -102,7 +108,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'People'), Tab(text: 'Videos')],
+          tabs: const [
+            Tab(text: 'People'),
+            Tab(text: 'Videos'),
+            Tab(text: 'Tags'),
+          ],
         ),
       ),
       body: _isLoading
@@ -119,6 +129,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   ),
                 ),
                 _VideoResults(videos: _videos),
+                _TagResults(tags: _tags, query: _lastQuery),
               ],
             ),
     );
@@ -179,6 +190,107 @@ class _UserResults extends StatelessWidget {
           onTap: () => onTap(u),
         );
       },
+    );
+  }
+}
+
+/// Hashtag search results. Each row opens the full-screen [TagFeedScreen].
+///
+/// When autocomplete returns nothing for a non-empty query we still offer a
+/// direct "Go to #query" row — the tag-feed endpoint resolves any tag name, so
+/// the user can always jump straight to a hashtag they typed.
+class _TagResults extends StatelessWidget {
+  const _TagResults({required this.tags, required this.query});
+  final List<TagModel> tags;
+  final String query;
+
+  static String _fmt(int v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return '$v';
+  }
+
+  void _open(BuildContext context, String tag) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TagFeedScreen(tag: tag)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final cleanQuery = query.replaceAll('#', '').trim();
+
+    if (tags.isEmpty) {
+      if (cleanQuery.isEmpty) {
+        return Center(
+          child: Text('Search for hashtags',
+              style: TextStyle(color: cs.onSurfaceVariant)),
+        );
+      }
+      // No suggestions, but let the user jump straight to the typed tag.
+      return ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: [
+          _TagTile(
+            name: cleanQuery,
+            subtitle: 'Open hashtag',
+            cs: cs,
+            onTap: () => _open(context, cleanQuery),
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: tags.length,
+      separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant),
+      itemBuilder: (_, i) {
+        final t = tags[i];
+        final count = t.count > 0 ? t.count : t.views;
+        return _TagTile(
+          name: t.name,
+          subtitle: count > 0 ? '${_fmt(count)} posts' : null,
+          cs: cs,
+          onTap: () => _open(context, t.name),
+        );
+      },
+    );
+  }
+}
+
+class _TagTile extends StatelessWidget {
+  const _TagTile({
+    required this.name,
+    required this.cs,
+    required this.onTap,
+    this.subtitle,
+  });
+  final String name;
+  final String? subtitle;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: cs.surfaceContainerHighest,
+        child: Text('#',
+            style: TextStyle(
+                color: cs.primary,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
+      ),
+      title: Text('#$name',
+          style:
+              TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600)),
+      subtitle: subtitle != null
+          ? Text(subtitle!, style: TextStyle(color: cs.onSurfaceVariant))
+          : null,
+      trailing: Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+      onTap: onTap,
     );
   }
 }

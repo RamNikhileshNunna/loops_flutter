@@ -1,11 +1,11 @@
 {
-    "name": "loops_flutter",
-    "short_name": "loops_flutter",
+    "name": "Loops",
+    "short_name": "Loops",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#000000",
+    "theme_color": "#FF2D55",
+    "description": "A cross-platform Flutter client for the Loops short-form video platform.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

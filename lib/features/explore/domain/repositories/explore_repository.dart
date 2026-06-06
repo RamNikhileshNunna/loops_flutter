@@ -10,4 +10,5 @@ abstract class ExploreRepository {
   Future<void> unfollowUser(String userId);
   Future<List<UserModel>> searchUsers(String query);
   Future<FeedPage> searchVideos(String query, {String? cursor});
+  Future<List<TagModel>> searchHashtags(String query);
 }

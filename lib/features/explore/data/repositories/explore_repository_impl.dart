@@ -112,6 +112,37 @@ class ExploreRepositoryImpl implements ExploreRepository {
     }
   }
 
+  @override
+  Future<List<TagModel>> searchHashtags(String query) async {
+    // Confirmed endpoint (from the official Loops app): autocomplete tags.
+    final clean = query.replaceAll('#', '').trim();
+    if (clean.isEmpty) return [];
+    try {
+      final response = await _apiClient.get(
+        'api/v1/autocomplete/tags',
+        queryParameters: {'q': clean},
+      );
+      // The payload may be a bare list or wrapped in {data: [...]}; each item
+      // may be a {name,count,...} object or a plain tag string.
+      final body = response.data;
+      final raw = body is Map ? body['data'] : body;
+      if (raw is! List) return [];
+      return raw
+          .map<TagModel?>((e) {
+            if (e is Map) {
+              return TagModel.fromJson(Map<String, dynamic>.from(e));
+            }
+            if (e is String) return TagModel(name: e);
+            return null;
+          })
+          .whereType<TagModel>()
+          .where((t) => t.name.isNotEmpty)
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
   FeedPage _parsePage(dynamic data) {
     if (data is! Map<String, dynamic>) {
       return const FeedPage(videos: [], nextCursor: null);

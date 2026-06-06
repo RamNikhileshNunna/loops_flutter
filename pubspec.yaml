@@ -1,5 +1,5 @@
 name: loops_flutter
-description: "A new Flutter project."
+description: "Loops — a cross-platform Flutter client for the Loops short-form video platform."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -83,6 +83,31 @@ dev_dependencies:
   riverpod_lint: ^3.0.3
   freezed: ^3.2.3
   json_serializable: ^6.11.2
+  # Generates platform launcher icons from assets/icon/* (run manually:
+  # `dart run flutter_launcher_icons`). Does NOT use build_runner.
+  flutter_launcher_icons: ^0.14.4
+
+# Launcher-icon generation config. Source art lives in assets/icon/ and is
+# produced by tool/generate_icon.py (brand-pink loop/play mark).
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: "ic_launcher"
+  adaptive_icon_background: "#FF2D55"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#000000"
+    theme_color: "#FF2D55"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
